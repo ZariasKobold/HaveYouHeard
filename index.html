@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Have You Heard?</title>
+<meta name="description" content="Never lose a recommendation again.">
+<meta name="theme-color" content="#0d0d0f">
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+
+  <!-- iOS PWA support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Have You Heard?">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+
+  <!-- Android / Chrome install -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --bg2: #141416;
+    --bg3: #1c1c20;
+    --bg4: #242428;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0ede8;
+    --text2: #a09d97;
+    --text3: #5a5854;
+    --accent: #e8c57a;
+    --accent2: #c9a84c;
+    --accent-bg: rgba(232,197,122,0.1);
+    --red: #e06b6b;
+    --green: #6bbd8f;
+    --blue: #6b9fe0;
+    --purple: #9b7ee0;
+    --orange: #e09b6b;
+    --teal: #6bd0bd;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+  h1,h2,h3 { font-family: 'Playfair Display', serif; }
+
+  /* AUTH */
+  #auth-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+  .auth-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px; padding: 3rem 2.5rem; width: 100%; max-width: 420px; }
+  .auth-logo { text-align: center; margin-bottom: 2.5rem; }
+  .auth-logo h1 { font-size: 2rem; color: var(--accent); letter-spacing: -0.5px; }
+  .auth-logo p { color: var(--text2); margin-top: 0.4rem; font-size: 0.9rem; }
+  .auth-tabs { display: flex; background: var(--bg3); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 1.5rem; }
+  .auth-tab { flex: 1; text-align: center; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text2); transition: all 0.2s; }
+  .auth-tab.active { background: var(--bg4); color: var(--text); }
+  .form-group { margin-bottom: 1rem; }
+  .form-group label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-group input { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; }
+  .form-group input:focus { border-color: var(--accent); }
+  .btn-primary { width: 100%; background: var(--accent); color: #1a1508; border: none; border-radius: var(--radius-sm); padding: 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s; margin-top: 0.5rem; }
+  .btn-primary:hover { background: var(--accent2); }
+  .auth-error { color: var(--red); font-size: 12px; margin-top: 0.5rem; text-align: center; min-height: 18px; }
+
+  /* APP LAYOUT */
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+  .topbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 1.5rem; display: flex; align-items: center; gap: 1rem; height: 56px; position: sticky; top: 0; z-index: 100; }
+  .topbar-logo { font-family: 'Playfair Display', serif; font-size: 1.2rem; color: var(--accent); white-space: nowrap; }
+  .topbar-search { flex: 1; max-width: 380px; }
+  .topbar-search input { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 20px; padding: 7px 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none; transition: border-color 0.2s; }
+  .topbar-search input:focus { border-color: var(--border2); }
+  .topbar-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .icon-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; cursor: pointer; color: var(--text2); font-size: 13px; transition: all 0.2s; display: flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+  .icon-btn:hover { border-color: var(--border2); color: var(--text); }
+  .icon-btn.accent { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  /* SIDEBAR */
+  .sidebar { width: 220px; background: var(--bg2); border-right: 1px solid var(--border); padding: 1rem 0; flex-shrink: 0; overflow-y: auto; }
+  .sidebar-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; padding: 0 1.5rem; margin-bottom: 0.4rem; margin-top: 0.75rem; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text2); transition: all 0.15s; font-size: 13px; margin: 0 0.5rem 2px; }
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active { background: var(--accent-bg); color: var(--accent); }
+  .nav-item .cat-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+  .nav-count { margin-left: auto; background: var(--bg4); color: var(--text3); font-size: 11px; padding: 1px 7px; border-radius: 10px; }
+  .nav-divider { height: 1px; background: var(--border); margin: 0.5rem 1rem; }
+
+  /* CONTENT */
+  .content { flex: 1; padding: 1.5rem; overflow-y: auto; min-width: 0; }
+  .page-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .page-title { font-size: 1.5rem; color: var(--text); }
+  .page-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .filter-chip { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 12px; cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
+  .filter-chip:hover, .filter-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+  .view-toggle { display: flex; background: var(--bg3); border-radius: var(--radius-sm); padding: 3px; }
+  .view-btn { padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text2); border: none; background: transparent; transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
+  .view-btn.active { background: var(--bg4); color: var(--text); }
+
+  /* ITEM GRID */
+  .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
+  .item-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: all 0.2s; position: relative; }
+  .item-card:hover { border-color: var(--border2); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .item-card-img { width: 100%; aspect-ratio: 2/3; background: var(--bg3); display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 2.5rem; overflow: hidden; }
+  .item-card-img img { width: 100%; height: 100%; object-fit: cover; }
+  .item-card-body { padding: 10px 12px; }
+  .item-card-title { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-card-meta { font-size: 11px; color: var(--text3); }
+  .item-card-badge { position: absolute; top: 8px; right: 8px; }
+  .priority-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; box-shadow: 0 0 6px currentColor; }
+  .p-high { background: var(--red); color: var(--red); }
+  .p-med { background: var(--accent); color: var(--accent); }
+  .p-low { background: var(--text3); color: var(--text3); }
+
+  /* ITEM LIST */
+  .items-list { display: flex; flex-direction: column; gap: 6px; }
+  .item-row { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.15s; }
+  .item-row:hover { border-color: var(--border2); background: var(--bg3); }
+  .item-row-thumb { width: 34px; height: 46px; background: var(--bg3); border-radius: 4px; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 14px; border: 1px solid var(--border); }
+  .item-row-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .item-row-info { flex: 1; min-width: 0; }
+  .item-row-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-row-sub { font-size: 11px; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-row-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+  .status-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+  .s-backlog { background: rgba(90,88,84,0.3); color: var(--text3); }
+  .s-inprogress { background: rgba(107,159,224,0.2); color: var(--blue); }
+  .s-completed { background: rgba(107,189,143,0.2); color: var(--green); }
+  .s-abandoned { background: rgba(224,107,107,0.2); color: var(--red); }
+  .rating-badge { font-size: 11px; color: var(--accent); font-weight: 500; }
+
+  /* DASHBOARD */
+  .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+  .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; }
+  .stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .stat-value { font-size: 1.8rem; font-family: 'Playfair Display', serif; color: var(--text); line-height: 1; }
+  .section-title { font-size: 1rem; color: var(--text); margin-bottom: 1rem; font-family: 'Playfair Display', serif; }
+  .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+
+  /* RANDOM PICK */
+  .random-banner { background: linear-gradient(135deg, rgba(232,197,122,0.12), rgba(155,126,224,0.08)); border: 1px solid rgba(232,197,122,0.4); border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem; }
+  .random-banner .pick-info { flex: 1; min-width: 0; }
+  .random-banner h3 { font-size: 0.85rem; color: var(--accent); margin-bottom: 4px; font-family: 'DM Sans', sans-serif; text-transform: uppercase; letter-spacing: 0.5px; }
+  .random-banner .pick-title { font-size: 1.1rem; font-family: 'Playfair Display', serif; color: var(--text); }
+  .random-banner .pick-source { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  /* MODALS */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(6px); }
+  .modal { background: var(--bg2); border: 1px solid var(--border2); border-radius: 16px; width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
+  .modal-header { padding: 1.5rem 1.5rem 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  .modal-title { font-size: 1.2rem; }
+  .modal-close { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: var(--text2); cursor: pointer; font-size: 14px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+  .modal-close:hover { color: var(--text); border-color: var(--border2); }
+  .modal-body { padding: 1.25rem 1.5rem; }
+  .modal-footer { padding: 0 1.5rem 1.5rem; display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .form-field { margin-bottom: 1rem; }
+  .form-field label { display: block; font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .form-field input, .form-field select, .form-field textarea { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none; transition: border-color 0.2s; }
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--accent); }
+  .form-field select option { background: var(--bg3); color: var(--text); }
+  .form-field textarea { resize: vertical; min-height: 80px; }
+  .img-fetch-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 1rem; }
+  .img-preview { width: 72px; height: 100px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; flex-shrink: 0; }
+  .img-preview img { width: 100%; height: 100%; object-fit: cover; }
+  .btn-sm { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; color: var(--text2); font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .btn-sm:hover { border-color: var(--border2); color: var(--text); }
+  .btn-accent { background: var(--accent) !important; color: #1a1508 !important; border-color: var(--accent) !important; font-weight: 500; }
+  .btn-accent:hover { background: var(--accent2) !important; }
+  .btn-danger { background: rgba(224,107,107,0.1) !important; border-color: var(--red) !important; color: var(--red) !important; margin-right: auto; }
+  .tags-input-row { display: flex; flex-wrap: wrap; gap: 5px; padding: 7px 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); min-height: 38px; cursor: text; transition: border-color 0.2s; }
+  .tags-input-row:focus-within { border-color: var(--accent); }
+  .tag-pill { background: var(--accent-bg); border: 1px solid rgba(232,197,122,0.3); color: var(--accent); font-size: 11px; padding: 2px 8px; border-radius: 10px; display: flex; align-items: center; gap: 4px; }
+  .tag-pill-x { cursor: pointer; opacity: 0.5; transition: opacity 0.1s; line-height: 1; }
+  .tag-pill-x:hover { opacity: 1; }
+  .tags-input-row input { background: transparent; border: none; outline: none; color: var(--text); font-size: 12px; font-family: 'DM Sans', sans-serif; min-width: 80px; flex: 1; padding: 0; }
+  .rating-row { display: flex; gap: 3px; }
+  .star-btn { background: none; border: none; cursor: pointer; font-size: 18px; color: var(--bg4); transition: color 0.1s, transform 0.1s; padding: 0 1px; line-height: 1; }
+  .star-btn:hover { transform: scale(1.2); }
+  .star-btn.filled { color: var(--accent); }
+
+  /* STATS */
+  .recommender-list { display: flex; flex-direction: column; gap: 10px; }
+  .rec-row { display: flex; align-items: center; gap: 10px; }
+  .rec-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-bg); border: 1px solid rgba(232,197,122,0.3); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--accent); font-weight: 500; flex-shrink: 0; }
+  .rec-bar-wrap { flex: 1; height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .rec-bar { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.6s ease; }
+  .rec-count { font-size: 11px; color: var(--text2); min-width: 24px; text-align: right; }
+
+  /* SETTINGS */
+  .settings-section { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+  .settings-section h3 { font-size: 13px; font-weight: 500; margin-bottom: 1rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+  .cat-manage-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .cat-manage-row:last-child { border-bottom: none; }
+
+  /* EMPTY */
+  .empty-state { text-align: center; padding: 4rem 2rem; color: var(--text3); }
+  .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+  .empty-state h3 { font-size: 1rem; color: var(--text2); margin-bottom: 0.4rem; }
+  .empty-state p { font-size: 13px; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 10px 16px; font-size: 13px; color: var(--text); z-index: 9999; animation: slideUp 0.25s ease; pointer-events: none; }
+  @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  .loading { display: flex; align-items: center; justify-content: center; padding: 4rem; color: var(--text3); font-size: 13px; }
+
+  /* MOBILE */
+  @media (max-width: 680px) {
+    .sidebar { display: none; }
+    .topbar-search { max-width: none; }
+    .form-row { grid-template-columns: 1fr; }
+    .items-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+    .page-actions { width: 100%; }
+    .dash-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ AUTH ═══════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <h1>Have You Heard?</h1>
+      <p>Never lose a recommendation again.</p>
+    </div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="switchAuthTab('login')">Sign In</div>
+      <div class="auth-tab" onclick="switchAuthTab('signup')">Create Account</div>
+    </div>
+    <div id="auth-login">
+      <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')handleLogin()"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="login-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')handleLogin()"></div>
+      <button class="btn-primary" onclick="handleLogin()">Sign In</button>
+      <div class="auth-error" id="login-error"></div>
+    </div>
+    <div id="auth-signup" style="display:none">
+      <div class="form-group"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="signup-password" placeholder="Minimum 6 characters"></div>
+      <button class="btn-primary" onclick="handleSignup()">Create Account</button>
+      <div class="auth-error" id="signup-error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ APP ═══════════════════════════ -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-logo">Have You Heard?</div>
+    <div class="topbar-search">
+      <input type="text" id="global-search" placeholder="Search everything..." oninput="handleSearch(this.value)">
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn accent" onclick="openQuickAdd()">+ Quick Add</button>
+      <button class="icon-btn" onclick="exportCSV()">↓ Export</button>
+      <button class="icon-btn" onclick="handleSignOut()" title="Sign out">⏻</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="sidebar">
+      <div style="padding:0 0.5rem">
+        <div class="nav-item" id="nav-dashboard" onclick="showView('dashboard')">
+          <span class="cat-icon">◈</span> Dashboard
+        </div>
+        <div class="nav-item" id="nav-stats" onclick="showView('stats')">
+          <span class="cat-icon">◉</span> Stats
+        </div>
+        <div class="nav-item" id="nav-settings" onclick="showView('settings')">
+          <span class="cat-icon">⚙</span> Settings
+        </div>
+      </div>
+      <div class="nav-divider"></div>
+      <div class="sidebar-label">Categories</div>
+      <div id="sidebar-cats" style="padding:0 0.5rem"></div>
+    </div>
+    <div class="content" id="main-content">
+      <div class="loading">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ ITEM MODAL ═══════════════════════════ -->
+<div class="modal-overlay" id="item-modal" style="display:none" onclick="if(event.target===this)closeItemModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-title-text">Add Item</h2>
+      <button class="modal-close" onclick="closeItemModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="img-fetch-row">
+        <div class="img-preview" id="modal-img-preview"><span id="modal-img-placeholder">📁</span></div>
+        <div style="flex:1;min-width:0">
+          <div class="form-field" style="margin-bottom:8px">
+            <label>Title</label>
+            <input type="text" id="modal-title" placeholder="Title of the item...">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn-sm" onclick="fetchImageForModal()" id="fetch-img-btn">🔍 Auto-fetch image</button>
+            <span id="img-fetch-status" style="font-size:11px;color:var(--text3)"></span>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Category</label>
+          <select id="modal-category" onchange="updateModalPlaceholder()"></select>
+        </div>
+        <div class="form-field">
+          <label>Status</label>
+          <select id="modal-status">
+            <option value="Backlog">Backlog</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+            <option value="Abandoned">Abandoned</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Heard From</label>
+          <input type="text" id="modal-source" placeholder="Who recommended it?">
+        </div>
+        <div class="form-field">
+          <label>Priority</label>
+          <select id="modal-priority">
+            <option value="1">Low</option>
+            <option value="2" selected>Medium</option>
+            <option value="3">High</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Date Added</label>
+          <input type="date" id="modal-date-added">
+        </div>
+        <div class="form-field">
+          <label>Date Engaged</label>
+          <input type="date" id="modal-date-engaged">
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Rating (1–10)</label>
+        <div class="rating-row" id="modal-rating-stars"></div>
+        <input type="hidden" id="modal-rating" value="0">
+      </div>
+      <div class="form-field">
+        <label>Tags — press Enter to add</label>
+        <div class="tags-input-row" id="tags-input-row" onclick="document.getElementById('tag-input').focus()">
+          <input type="text" id="tag-input" placeholder="Add tag…" onkeydown="handleTagInput(event)">
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Notes</label>
+        <textarea id="modal-notes" placeholder="Your thoughts, review, or anything else…"></textarea>
+      </div>
+      <div class="form-field">
+        <label>Image URL (manual override)</label>
+        <input type="text" id="modal-image-url" placeholder="https://…" oninput="previewImage(this.value)">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm btn-danger" id="modal-delete-btn" onclick="deleteItem()" style="display:none">Delete</button>
+      <button class="btn-sm" onclick="closeItemModal()">Cancel</button>
+      <button class="btn-sm btn-accent" onclick="saveItem()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ QUICK ADD MODAL ═══════════════════════════ -->
+<div class="modal-overlay" id="quick-add-modal" style="display:none" onclick="if(event.target===this)closeQuickAdd()">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <h2 class="modal-title">Quick Add</h2>
+      <button class="modal-close" onclick="closeQuickAdd()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label>What did you hear about?</label>
+        <input type="text" id="qa-title" placeholder="Title…" onkeydown="if(event.key==='Enter')saveQuickAdd()">
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Category</label>
+          <select id="qa-category"></select>
+        </div>
+        <div class="form-field">
+          <label>Heard From</label>
+          <input type="text" id="qa-source" placeholder="Who told you?" onkeydown="if(event.key==='Enter')saveQuickAdd()">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm" onclick="closeQuickAdd()">Cancel</button>
+      <button class="btn-sm btn-accent" onclick="saveQuickAdd()">Add to Backlog</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ ADD CATEGORY MODAL ═══════════════════════════ -->
+<div class="modal-overlay" id="cat-modal" style="display:none" onclick="if(event.target===this)closeCatModal()">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2 class="modal-title">New Category</h2>
+      <button class="modal-close" onclick="closeCatModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-field">
+          <label>Name</label>
+          <input type="text" id="cat-name" placeholder="e.g. Podcasts">
+        </div>
+        <div class="form-field">
+          <label>Icon (emoji)</label>
+          <input type="text" id="cat-icon" placeholder="🎙️" maxlength="2">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Accent Color (hex)</label>
+          <input type="text" id="cat-color" placeholder="#6b9fe0">
+        </div>
+        <div class="form-field">
+          <label>Action Verb</label>
+          <input type="text" id="cat-verb" placeholder="e.g. Listened">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm" onclick="closeCatModal()">Cancel</button>
+      <button class="btn-sm btn-accent" onclick="saveCat()">Create Category</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
+
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let currentUser = null;
+let categories = [];
+let allItems = [];
+let currentView = 'dashboard';
+let currentCatId = null;
+let currentViewMode = 'grid';
+let currentStatusFilter = 'all';
+let editingItemId = null;
+let currentTags = [];
+let randomPick = null;
+let searchQuery = '';
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  if (session) { currentUser = session.user; showApp(); }
+  db.auth.onAuthStateChange((event, session) => {
+    if (session) { currentUser = session.user; showApp(); }
+    else { currentUser = null; document.getElementById('app').style.display = 'none'; document.getElementById('auth-screen').style.display = 'flex'; }
+  });
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t, i) => t.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='signup')));
+  document.getElementById('auth-login').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('auth-signup').style.display = tab === 'signup' ? 'block' : 'none';
+}
+
+async function handleLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const el = document.getElementById('login-error');
+  el.textContent = '';
+  if (!email || !password) { el.textContent = 'Please fill in all fields.'; return; }
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  if (error) el.textContent = error.message;
+}
+
+async function handleSignup() {
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const el = document.getElementById('signup-error');
+  el.textContent = '';
+  if (!email || !password) { el.textContent = 'Please fill in all fields.'; return; }
+  const { error } = await db.auth.signUp({ email, password });
+  if (error) el.textContent = error.message;
+  else { el.style.color = 'var(--green)'; el.textContent = 'Account created! Check your email to confirm, then sign in.'; }
+}
+
+async function handleSignOut() {
+  await db.auth.signOut();
+}
+
+// ─── DATA ─────────────────────────────────────────────────────────────────────
+async function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  await loadCategories();
+  await loadItems();
+  renderSidebar();
+  showView('dashboard');
+}
+
+async function loadCategories() {
+  const { data, error } = await db.from('categories').select('*').order('sort_order');
+  if (!error) categories = data || [];
+}
+
+async function loadItems() {
+  const { data, error } = await db.from('items').select('*, item_tags(tag_id, tags(name))').order('created_at', { ascending: false });
+  if (!error) allItems = (data || []).map(item => ({
+    ...item,
+    tags: (item.item_tags || []).map(it => it.tags?.name).filter(Boolean)
+  }));
+}
+
+// ─── SIDEBAR & NAV ───────────────────────────────────────────────────────────
+function renderSidebar() {
+  const container = document.getElementById('sidebar-cats');
+  container.innerHTML = categories.map(cat => {
+    const count = allItems.filter(i => i.category_id === cat.id).length;
+    return `<div class="nav-item" id="nav-cat-${cat.id}" onclick="showCategoryView('${cat.id}')">
+      <span class="cat-icon">${cat.icon || '📁'}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">${cat.name}</span>
+      <span class="nav-count">${count}</span>
+    </div>`;
+  }).join('');
+
+  ['modal-category', 'qa-category'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel) sel.innerHTML = categories.map(c => `<option value="${c.id}">${c.icon || ''} ${c.name}</option>`).join('');
+  });
+}
+
+function setActiveNav(id) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('active');
+}
+
+function showView(view) {
+  currentView = view;
+  currentCatId = null;
+  randomPick = null;
+  setActiveNav('nav-' + view);
+  if (view === 'dashboard') renderDashboard();
+  else if (view === 'stats') renderStats();
+  else if (view === 'settings') renderSettings();
+}
+
+function showCategoryView(catId) {
+  currentView = 'category';
+  currentCatId = catId;
+  currentStatusFilter = 'all';
+  randomPick = null;
+  setActiveNav('nav-cat-' + catId);
+  renderCategoryView();
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const total = allItems.length;
+  const completed = allItems.filter(i => i.status === 'Completed').length;
+  const backlog = allItems.filter(i => i.status === 'Backlog').length;
+  const rated = allItems.filter(i => i.rating);
+  const avgRating = rated.length ? (rated.reduce((a, b) => a + b.rating, 0) / rated.length).toFixed(1) : '—';
+  const recent = allItems.slice(0, 10);
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header">
+      <h1 class="page-title">Dashboard</h1>
+      <div class="page-actions">
+        <button class="btn-sm btn-accent" onclick="openItemModal()">+ Add Item</button>
+      </div>
+    </div>
+    <div class="dash-grid">
+      <div class="stat-card"><div class="stat-label">Total Items</div><div class="stat-value">${total}</div></div>
+      <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value" style="color:var(--green)">${completed}</div></div>
+      <div class="stat-card"><div class="stat-label">In Backlog</div><div class="stat-value" style="color:var(--accent)">${backlog}</div></div>
+      <div class="stat-card"><div class="stat-label">Avg Rating</div><div class="stat-value" style="color:var(--accent)">${avgRating}</div></div>
+    </div>
+    <h2 class="section-title">Recently Added</h2>
+    <div class="items-list">
+      ${recent.length
+        ? recent.map(renderItemRow).join('')
+        : `<div class="empty-state"><div class="empty-icon">🎙️</div><h3>Nothing here yet</h3><p>Hit Quick Add or tap a category to start logging recommendations.</p></div>`
+      }
+    </div>`;
+}
+
+// ─── CATEGORY VIEW ───────────────────────────────────────────────────────────
+function getFilteredItems() {
+  let items = currentCatId ? allItems.filter(i => i.category_id === currentCatId) : allItems;
+  if (currentStatusFilter !== 'all') items = items.filter(i => i.status === currentStatusFilter);
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    items = items.filter(i => i.title.toLowerCase().includes(q) || (i.source || '').toLowerCase().includes(q) || (i.tags || []).some(t => t.toLowerCase().includes(q)));
+  }
+  return items;
+}
+
+function renderCategoryView() {
+  const cat = categories.find(c => c.id === currentCatId);
+  if (!cat) return;
+  const items = getFilteredItems();
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header">
+      <span style="font-size:1.6rem">${cat.icon || '📁'}</span>
+      <h1 class="page-title">${cat.name}</h1>
+      <div class="page-actions">
+        <div class="view-toggle">
+          <button class="view-btn ${currentViewMode === 'grid' ? 'active' : ''}" onclick="setViewMode('grid')">⊞</button>
+          <button class="view-btn ${currentViewMode === 'list' ? 'active' : ''}" onclick="setViewMode('list')">≡</button>
+        </div>
+        <button class="icon-btn" onclick="triggerRandomPick()">🎲 Random</button>
+        <button class="btn-sm btn-accent" onclick="openItemModal('${currentCatId}')">+ Add</button>
+      </div>
+    </div>
+    ${randomPick && randomPick.category_id === currentCatId ? renderRandomBanner() : ''}
+    <div class="filter-bar">
+      ${['all', 'Backlog', 'In Progress', 'Completed', 'Abandoned'].map(s =>
+        `<button class="filter-chip ${currentStatusFilter === s ? 'active' : ''}" onclick="setStatusFilter('${s}')">${s === 'all' ? 'All' : s}</button>`
+      ).join('')}
+    </div>
+    <div id="items-container">
+      ${items.length === 0
+        ? `<div class="empty-state"><div class="empty-icon">${cat.icon || '📁'}</div><h3>Nothing in ${cat.name} yet</h3><p>Add your first recommendation!</p></div>`
+        : currentViewMode === 'grid'
+          ? `<div class="items-grid">${items.map(renderItemCard).join('')}</div>`
+          : `<div class="items-list">${items.map(renderItemRow).join('')}</div>`
+      }
+    </div>`;
+}
+
+function renderRandomBanner() {
+  const item = randomPick;
+  const cat = categories.find(c => c.id === item.category_id);
+  return `<div class="random-banner">
+    <div style="font-size:2rem;flex-shrink:0">${cat?.icon || '🎲'}</div>
+    <div class="pick-info">
+      <h3>Your Random Pick</h3>
+      <div class="pick-title">${item.title}</div>
+      ${item.source ? `<div class="pick-source">Heard from ${item.source}</div>` : ''}
+    </div>
+    <button class="btn-sm" onclick="randomPick=null;renderCategoryView()">✕</button>
+  </div>`;
+}
+
+function renderItemCard(item) {
+  const priorityClass = item.priority === 3 ? 'p-high' : item.priority === 1 ? 'p-low' : 'p-med';
+  const cat = categories.find(c => c.id === item.category_id);
+  return `<div class="item-card" onclick="openItemModal(null,'${item.id}')">
+    <div class="item-card-img">
+      ${item.image_url
+        ? `<img src="${item.image_url}" onerror="this.parentElement.innerHTML='<span style=font-size:2.5rem>${cat?.icon || '📁'}</span>'" loading="lazy">`
+        : `<span style="font-size:2.5rem">${cat?.icon || '📁'}</span>`
+      }
+    </div>
+    <div class="item-card-badge"><span class="priority-dot ${priorityClass}"></span></div>
+    <div class="item-card-body">
+      <div class="item-card-title">${item.title}</div>
+      <div class="item-card-meta">${item.rating ? '★ ' + item.rating : item.status}</div>
+    </div>
+  </div>`;
+}
+
+function renderItemRow(item) {
+  const cat = categories.find(c => c.id === item.category_id);
+  const statusClass = { 'Backlog': 's-backlog', 'In Progress': 's-inprogress', 'Completed': 's-completed', 'Abandoned': 's-abandoned' }[item.status] || 's-backlog';
+  return `<div class="item-row" onclick="openItemModal(null,'${item.id}')">
+    <div class="item-row-thumb">
+      ${item.image_url
+        ? `<img src="${item.image_url}" onerror="this.parentElement.textContent='${cat?.icon || '📁'}'" loading="lazy">`
+        : (cat?.icon || '📁')
+      }
+    </div>
+    <div class="item-row-info">
+      <div class="item-row-title">${item.title}</div>
+      <div class="item-row-sub">${cat?.name || ''}${item.source ? ' · ' + item.source : ''}${(item.tags || []).length ? ' · ' + item.tags.join(', ') : ''}</div>
+    </div>
+    <div class="item-row-right">
+      <span class="status-badge ${statusClass}">${item.status}</span>
+      ${item.rating ? `<span class="rating-badge">★ ${item.rating}</span>` : ''}
+    </div>
+  </div>`;
+}
+
+function setViewMode(mode) { currentViewMode = mode; renderCategoryView(); }
+function setStatusFilter(s) { currentStatusFilter = s; renderCategoryView(); }
+
+function triggerRandomPick() {
+  const items = allItems.filter(i => i.category_id === currentCatId && i.status === 'Backlog');
+  if (!items.length) { showToast('No backlog items to pick from!'); return; }
+  randomPick = items[Math.floor(Math.random() * items.length)];
+  renderCategoryView();
+}
+
+function handleSearch(q) {
+  searchQuery = q;
+  if (currentView === 'category') renderCategoryView();
+  else if (q) {
+    currentCatId = null;
+    document.getElementById('main-content').innerHTML = `
+      <div class="page-header"><h1 class="page-title">Search results for "${q}"</h1></div>
+      <div class="items-list">${getFilteredItems().length
+        ? getFilteredItems().map(renderItemRow).join('')
+        : '<div class="empty-state"><div class="empty-icon">🔍</div><h3>No results</h3></div>'
+      }</div>`;
+  } else renderDashboard();
+}
+
+// ─── ITEM MODAL ───────────────────────────────────────────────────────────────
+function openItemModal(catId, itemId) {
+  editingItemId = itemId || null;
+  currentTags = [];
+
+  // Reset
+  document.getElementById('modal-rating').value = '0';
+  renderStars(0);
+  document.getElementById('tags-input-row').innerHTML = '<input type="text" id="tag-input" placeholder="Add tag…" onkeydown="handleTagInput(event)">';
+  document.getElementById('modal-image-url').value = '';
+  document.getElementById('modal-img-preview').innerHTML = '<span id="modal-img-placeholder">📁</span>';
+  document.getElementById('img-fetch-status').textContent = '';
+  document.getElementById('modal-date-added').value = new Date().toISOString().split('T')[0];
+  document.getElementById('modal-date-engaged').value = '';
+  document.getElementById('modal-notes').value = '';
+  document.getElementById('modal-source').value = '';
+  document.getElementById('modal-title').value = '';
+  document.getElementById('modal-status').value = 'Backlog';
+  document.getElementById('modal-priority').value = '2';
+  document.getElementById('modal-delete-btn').style.display = 'none';
+  document.getElementById('modal-title-text').textContent = 'Add Item';
+
+  if (catId) document.getElementById('modal-category').value = catId;
+  else if (currentCatId) document.getElementById('modal-category').value = currentCatId;
+
+  if (itemId) {
+    const item = allItems.find(i => i.id === itemId);
+    if (item) {
+      document.getElementById('modal-title-text').textContent = 'Edit Item';
+      document.getElementById('modal-title').value = item.title;
+      document.getElementById('modal-category').value = item.category_id;
+      document.getElementById('modal-status').value = item.status;
+      document.getElementById('modal-priority').value = item.priority;
+      document.getElementById('modal-source').value = item.source || '';
+      document.getElementById('modal-notes').value = item.notes || '';
+      document.getElementById('modal-rating').value = item.rating || 0;
+      document.getElementById('modal-date-added').value = item.date_added || '';
+      document.getElementById('modal-date-engaged').value = item.date_engaged || '';
+      document.getElementById('modal-image-url').value = item.image_url || '';
+      document.getElementById('modal-delete-btn').style.display = 'block';
+      renderStars(item.rating || 0);
+      if (item.image_url) previewImage(item.image_url);
+      currentTags = [...(item.tags || [])];
+      renderTagPills();
+    }
+  }
+
+  updateModalPlaceholder();
+  document.getElementById('item-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('modal-title').focus(), 100);
+}
+
+function closeItemModal() {
+  document.getElementById('item-modal').style.display = 'none';
+  editingItemId = null;
+}
+
+function updateModalPlaceholder() {
+  const catId = document.getElementById('modal-category').value;
+  const cat = categories.find(c => c.id === catId);
+  const ph = document.getElementById('modal-img-placeholder');
+  if (ph && cat) ph.textContent = cat.icon || '📁';
+}
+
+function previewImage(url) {
+  const preview = document.getElementById('modal-img-preview');
+  if (url) {
+    preview.innerHTML = `<img src="${url}" onerror="this.parentElement.innerHTML='❌'" style="width:100%;height:100%;object-fit:cover">`;
+  } else {
+    preview.innerHTML = '<span id="modal-img-placeholder">📁</span>';
+    updateModalPlaceholder();
+  }
+}
+
+// ─── IMAGE FETCHING ───────────────────────────────────────────────────────────
+async function fetchImageForModal() {
+  const title = document.getElementById('modal-title').value.trim();
+  if (!title) { showToast('Enter a title first'); return; }
+  const catId = document.getElementById('modal-category').value;
+  const cat = categories.find(c => c.id === catId);
+  const source = cat?.image_source || 'ai';
+  const statusEl = document.getElementById('img-fetch-status');
+  const btn = document.getElementById('fetch-img-btn');
+  statusEl.textContent = 'Searching…';
+  btn.disabled = true;
+
+  try {
+    let url = null;
+    if (source === 'openlibrary') url = await fetchOpenLibrary(title);
+    else if (source === 'tmdb') url = await fetchTMDB(title);
+    else if (source === 'rawg') url = await fetchRAWG(title);
+    else if (source === 'bgg') url = await fetchBGG(title);
+
+    if (!url) url = await fetchOpenLibrary(title) || await fetchTMDB(title) || await fetchRAWG(title);
+
+    if (url) {
+      document.getElementById('modal-image-url').value = url;
+      previewImage(url);
+      statusEl.style.color = 'var(--green)';
+      statusEl.textContent = '✓ Image found';
+    } else {
+      statusEl.style.color = 'var(--text3)';
+      statusEl.textContent = 'Not found — try pasting a URL manually';
+    }
+  } catch (e) {
+    statusEl.textContent = 'Error fetching';
+  }
+  btn.disabled = false;
+}
+
+async function fetchOpenLibrary(title) {
+  try {
+    const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=1`);
+    const d = await r.json();
+    const coverId = d.docs?.[0]?.cover_i;
+    return coverId ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg` : null;
+  } catch { return null; }
+}
+
+async function fetchTMDB(title) {
+  try {
+    const key = '4a3b711b67bee2e30843ca96d68a09c1';
+    const r = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${key}&query=${encodeURIComponent(title)}&page=1`);
+    const d = await r.json();
+    const path = d.results?.[0]?.poster_path;
+    return path ? `https://image.tmdb.org/t/p/w500${path}` : null;
+  } catch { return null; }
+}
+
+async function fetchRAWG(title) {
+  try {
+    const key = '5a0a9c4e63b0490da52daf9c99da4e05';
+    const r = await fetch(`https://api.rawg.io/api/games?key=${key}&search=${encodeURIComponent(title)}&page_size=1`);
+    const d = await r.json();
+    return d.results?.[0]?.background_image || null;
+  } catch { return null; }
+}
+
+async function fetchBGG(title) {
+  try {
+    const r = await fetch(`https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(title)}&type=boardgame&exact=1`);
+    const text = await r.text();
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(text, 'text/xml');
+    const id = xml.querySelector('item')?.getAttribute('id');
+    if (!id) return null;
+    const r2 = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${id}`);
+    const text2 = await r2.text();
+    const xml2 = parser.parseFromString(text2, 'text/xml');
+    return xml2.querySelector('image')?.textContent?.trim() || null;
+  } catch { return null; }
+}
+
+// ─── RATINGS & TAGS ───────────────────────────────────────────────────────────
+function renderStars(rating) {
+  document.getElementById('modal-rating-stars').innerHTML = Array.from({ length: 10 }, (_, i) =>
+    `<button class="star-btn ${i < rating ? 'filled' : ''}" onclick="setRating(${i + 1})">★</button>`
+  ).join('');
+}
+
+function setRating(r) {
+  document.getElementById('modal-rating').value = r;
+  renderStars(r);
+}
+
+function handleTagInput(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = e.target.value.trim().replace(/,/g, '').toLowerCase();
+    if (val && !currentTags.includes(val)) { currentTags.push(val); renderTagPills(); }
+    e.target.value = '';
+  }
+}
+
+function renderTagPills() {
+  const row = document.getElementById('tags-input-row');
+  row.innerHTML = currentTags.map((t, i) =>
+    `<span class="tag-pill">${t}<span class="tag-pill-x" onclick="removeTag(${i})">✕</span></span>`
+  ).join('') + '<input type="text" id="tag-input" placeholder="Add tag…" onkeydown="handleTagInput(event)">';
+}
+
+function removeTag(i) { currentTags.splice(i, 1); renderTagPills(); }
+
+// ─── SAVE / DELETE ────────────────────────────────────────────────────────────
+async function saveItem() {
+  const title = document.getElementById('modal-title').value.trim();
+  if (!title) { showToast('Title is required'); return; }
+
+  const payload = {
+    user_id: currentUser.id,
+    title,
+    category_id: document.getElementById('modal-category').value,
+    status: document.getElementById('modal-status').value,
+    priority: parseInt(document.getElementById('modal-priority').value),
+    source: document.getElementById('modal-source').value.trim() || null,
+    notes: document.getElementById('modal-notes').value.trim() || null,
+    rating: parseInt(document.getElementById('modal-rating').value) || null,
+    date_added: document.getElementById('modal-date-added').value || null,
+    date_engaged: document.getElementById('modal-date-engaged').value || null,
+    image_url: document.getElementById('modal-image-url').value.trim() || null,
+  };
+
+  let itemId = editingItemId;
+  if (editingItemId) {
+    const { error } = await db.from('items').update(payload).eq('id', editingItemId);
+    if (error) { showToast('Error: ' + error.message); return; }
+  } else {
+    const { data, error } = await db.from('items').insert(payload).select().single();
+    if (error) { showToast('Error: ' + error.message); return; }
+    itemId = data.id;
+  }
+
+  // Sync tags
+  if (itemId) {
+    await db.from('item_tags').delete().eq('item_id', itemId);
+    for (const tagName of currentTags) {
+      let { data: tag } = await db.from('tags').select().eq('user_id', currentUser.id).eq('name', tagName).maybeSingle();
+      if (!tag) {
+        const { data: newTag } = await db.from('tags').insert({ user_id: currentUser.id, name: tagName }).select().single();
+        tag = newTag;
+      }
+      if (tag) await db.from('item_tags').insert({ item_id: itemId, tag_id: tag.id });
+    }
+  }
+
+  showToast(editingItemId ? 'Item updated!' : 'Item added!');
+  closeItemModal();
+  await loadItems();
+  renderSidebar();
+  if (currentView === 'category') renderCategoryView();
+  else renderDashboard();
+}
+
+async function deleteItem() {
+  if (!editingItemId || !confirm('Delete this item? This cannot be undone.')) return;
+  await db.from('item_tags').delete().eq('item_id', editingItemId);
+  await db.from('items').delete().eq('id', editingItemId);
+  showToast('Item deleted');
+  closeItemModal();
+  await loadItems();
+  renderSidebar();
+  if (currentView === 'category') renderCategoryView();
+  else renderDashboard();
+}
+
+// ─── QUICK ADD ────────────────────────────────────────────────────────────────
+function openQuickAdd() {
+  document.getElementById('quick-add-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('qa-title').focus(), 100);
+}
+
+function closeQuickAdd() {
+  document.getElementById('quick-add-modal').style.display = 'none';
+  document.getElementById('qa-title').value = '';
+  document.getElementById('qa-source').value = '';
+}
+
+async function saveQuickAdd() {
+  const title = document.getElementById('qa-title').value.trim();
+  if (!title) { showToast('Title required'); return; }
+  const { error } = await db.from('items').insert({
+    user_id: currentUser.id,
+    title,
+    category_id: document.getElementById('qa-category').value,
+    source: document.getElementById('qa-source').value.trim() || null,
+    status: 'Backlog',
+    priority: 2
+  });
+  if (error) { showToast('Error: ' + error.message); return; }
+  showToast('Added to backlog! ✓');
+  closeQuickAdd();
+  await loadItems();
+  renderSidebar();
+  if (currentView === 'category') renderCategoryView();
+  else renderDashboard();
+}
+
+// ─── STATS ───────────────────────────────────────────────────────────────────
+function renderStats() {
+  const completed = allItems.filter(i => i.status === 'Completed');
+  const rated = allItems.filter(i => i.rating);
+
+  const catStats = categories.map(cat => {
+    const catItems = allItems.filter(i => i.category_id === cat.id);
+    const catCompleted = catItems.filter(i => i.status === 'Completed');
+    const catRated = catItems.filter(i => i.rating);
+    return {
+      name: cat.name,
+      icon: cat.icon,
+      total: catItems.length,
+      completed: catCompleted.length,
+      rate: catItems.length ? Math.round(catCompleted.length / catItems.length * 100) : 0,
+      avgRating: catRated.length ? (catRated.reduce((a, b) => a + b.rating, 0) / catRated.length).toFixed(1) : 0
+    };
+  }).filter(c => c.total > 0);
+
+  const monthCounts = {};
+  completed.forEach(i => {
+    if (i.date_engaged) { const m = i.date_engaged.substring(0, 7); monthCounts[m] = (monthCounts[m] || 0) + 1; }
+  });
+  const monthData = Object.entries(monthCounts).sort().slice(-12).map(([m, c]) => ({ month: m.substring(5) + '/' + m.substring(2, 4), count: c }));
+
+  const recMap = {};
+  allItems.forEach(i => {
+    if (i.source) {
+      const k = i.source.trim();
+      if (!recMap[k]) recMap[k] = { count: 0, rated: 0, totalRating: 0 };
+      recMap[k].count++;
+      if (i.rating) { recMap[k].rated++; recMap[k].totalRating += i.rating; }
+    }
+  });
+  const topRecs = Object.entries(recMap).map(([name, v]) => ({ name, count: v.count, avgRating: v.rated ? (v.totalRating / v.rated).toFixed(1) : null })).sort((a, b) => b.count - a.count).slice(0, 8);
+  const maxRec = topRecs.length ? topRecs[0].count : 1;
+
+  const tagMap = {};
+  allItems.forEach(i => (i.tags || []).forEach(t => { tagMap[t] = (tagMap[t] || 0) + 1; }));
+  const topTags = Object.entries(tagMap).sort((a, b) => b[1] - a[1]).slice(0, 12);
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header"><h1 class="page-title">Stats</h1></div>
+    <div class="dash-grid">
+      <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value">${allItems.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value" style="color:var(--green)">${completed.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Completion</div><div class="stat-value">${allItems.length ? Math.round(completed.length / allItems.length * 100) : 0}%</div></div>
+      <div class="stat-card"><div class="stat-label">Avg Rating</div><div class="stat-value" style="color:var(--accent)">${rated.length ? (rated.reduce((a, b) => a + b.rating, 0) / rated.length).toFixed(1) : '—'}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+      <div class="chart-card">
+        <div class="section-title">Completion by Category</div>
+        ${catStats.length ? catStats.map(c => `<div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span>${c.icon || ''} ${c.name}</span>
+            <span style="color:var(--text2)">${c.completed}/${c.total} · ${c.rate}%</span>
+          </div>
+          <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${c.rate}%;background:var(--green);border-radius:3px"></div>
+          </div>
+        </div>`).join('') : '<p style="color:var(--text3);font-size:13px">Add some items to see this!</p>'}
+      </div>
+      <div class="chart-card">
+        <div class="section-title">Avg Rating by Category</div>
+        ${catStats.filter(c => c.avgRating > 0).length ? catStats.filter(c => c.avgRating > 0).map(c => `<div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span>${c.icon || ''} ${c.name}</span>
+            <span style="color:var(--accent)">★ ${c.avgRating}</span>
+          </div>
+          <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${Math.round(c.avgRating / 10 * 100)}%;background:var(--accent);border-radius:3px"></div>
+          </div>
+        </div>`).join('') : '<p style="color:var(--text3);font-size:13px">Rate some items to see this!</p>'}
+      </div>
+    </div>
+    ${monthData.length ? `<div class="chart-card" style="margin-bottom:1rem">
+      <div class="section-title">Completions by Month</div>
+      <div style="display:flex;align-items:flex-end;gap:5px;height:90px;padding-top:10px">
+        ${(() => { const max = Math.max(...monthData.map(m => m.count)); return monthData.map(m => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0">
+          <div style="background:var(--accent);border-radius:3px 3px 0 0;width:100%;height:${Math.round(m.count / max * 64)}px;min-height:4px" title="${m.count}"></div>
+          <span style="font-size:10px;color:var(--text3);writing-mode:vertical-lr;transform:rotate(180deg);height:28px">${m.month}</span>
+        </div>`).join(''); })()}
+      </div>
+    </div>` : ''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div class="chart-card">
+        <div class="section-title">Top Recommenders</div>
+        ${topRecs.length ? `<div class="recommender-list">${topRecs.map(r => `<div class="rec-row">
+          <div class="rec-avatar">${r.name.substring(0, 2).toUpperCase()}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}</div>
+            ${r.avgRating ? `<div style="font-size:11px;color:var(--accent)">★ ${r.avgRating} avg</div>` : ''}
+          </div>
+          <div class="rec-bar-wrap"><div class="rec-bar" style="width:${Math.round(r.count / maxRec * 100)}%"></div></div>
+          <div class="rec-count">${r.count}</div>
+        </div>`).join('')}</div>` : '<p style="color:var(--text3);font-size:13px">Fill in "Heard From" on items to track recommenders!</p>'}
+      </div>
+      <div class="chart-card">
+        <div class="section-title">Top Tags</div>
+        ${topTags.length ? `<div style="display:flex;flex-wrap:wrap;gap:7px">${topTags.map(([t, c]) => `<span class="tag-pill">${t} <span style="opacity:0.5">${c}</span></span>`).join('')}</div>` : '<p style="color:var(--text3);font-size:13px">Tag your items to see breakdowns here!</p>'}
+      </div>
+    </div>`;
+}
+
+// ─── SETTINGS ────────────────────────────────────────────────────────────────
+function renderSettings() {
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header"><h1 class="page-title">Settings</h1></div>
+    <div class="settings-section">
+      <h3>Categories</h3>
+      ${categories.map(cat => `<div class="cat-manage-row">
+        <span style="font-size:1.1rem">${cat.icon || '📁'}</span>
+        <span style="flex:1;font-size:13px">${cat.name}</span>
+        <span style="font-size:11px;color:var(--text3);margin-right:8px">${cat.status_verb}</span>
+        ${cat.is_default ? '<span style="font-size:10px;color:var(--text3);padding:2px 8px;background:var(--bg3);border-radius:10px">default</span>' : ''}
+      </div>`).join('')}
+      <button class="btn-sm btn-accent" style="margin-top:1rem" onclick="openCatModal()">+ Add Category</button>
+    </div>
+    <div class="settings-section">
+      <h3>Export Data</h3>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Download all your items as a CSV file.</p>
+      <button class="btn-sm" onclick="exportCSV()">↓ Export as CSV</button>
+    </div>
+    <div class="settings-section">
+      <h3>Account</h3>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">${currentUser?.email}</p>
+      <button class="btn-sm btn-danger" onclick="handleSignOut()">Sign Out</button>
+    </div>`;
+}
+
+function openCatModal() {
+  document.getElementById('cat-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('cat-name').focus(), 100);
+}
+function closeCatModal() { document.getElementById('cat-modal').style.display = 'none'; }
+
+async function saveCat() {
+  const name = document.getElementById('cat-name').value.trim();
+  if (!name) { showToast('Name is required'); return; }
+  const { error } = await db.from('categories').insert({
+    user_id: currentUser.id,
+    name,
+    icon: document.getElementById('cat-icon').value.trim() || '📁',
+    color: document.getElementById('cat-color').value.trim() || '#888888',
+    status_verb: document.getElementById('cat-verb').value.trim() || 'Done',
+    image_source: 'ai',
+    is_default: false,
+    sort_order: categories.length + 1
+  });
+  if (error) { showToast('Error: ' + error.message); return; }
+  showToast('Category created!');
+  closeCatModal();
+  document.getElementById('cat-name').value = '';
+  document.getElementById('cat-icon').value = '';
+  document.getElementById('cat-color').value = '';
+  document.getElementById('cat-verb').value = '';
+  await loadCategories();
+  renderSidebar();
+  renderSettings();
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+function exportCSV() {
+  const headers = ['Title', 'Category', 'Status', 'Priority', 'Source', 'Rating', 'Date Added', 'Date Engaged', 'Tags', 'Notes'];
+  const rows = allItems.map(item => {
+    const cat = categories.find(c => c.id === item.category_id);
+    const priorityLabel = item.priority === 3 ? 'High' : item.priority === 1 ? 'Low' : 'Medium';
+    return [
+      `"${(item.title || '').replace(/"/g, '""')}"`,
+      `"${(cat?.name || '').replace(/"/g, '""')}"`,
+      item.status || '',
+      priorityLabel,
+      `"${(item.source || '').replace(/"/g, '""')}"`,
+      item.rating || '',
+      item.date_added || '',
+      item.date_engaged || '',
+      `"${(item.tags || []).join(', ')}"`,
+      `"${(item.notes || '').replace(/"/g, '""')}"`
+    ].join(',');
+  });
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'have-you-heard-export.csv'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('Exported!');
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2800);
+}
+
+// ─── START ────────────────────────────────────────────────────────────────────
+init();
+
+// ─── SERVICE WORKER ───────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW registration failed:', err));
+  });
+}
+
+// ─── PWA INSTALL PROMPT ───────────────────────────────────────────────────────
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const bar = document.querySelector('.topbar-actions');
+  if (bar && !document.getElementById('pwa-install-btn')) {
+    const btn = document.createElement('button');
+    btn.id = 'pwa-install-btn';
+    btn.className = 'icon-btn';
+    btn.textContent = '⬇ Install App';
+    btn.title = 'Install Have You Heard? to your home screen';
+    btn.onclick = async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') btn.remove();
+      deferredInstallPrompt = null;
+    };
+    bar.insertBefore(btn, bar.firstChild);
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.remove();
+  deferredInstallPrompt = null;
+  showToast('App installed! 🎙️');
+});
+</script>
+</body>
+</html>
