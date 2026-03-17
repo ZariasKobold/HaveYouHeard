@@ -463,8 +463,20 @@ let searchQuery = '';
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 async function init() {
+  // Handle email confirmation token in URL hash
+  if (window.location.hash && window.location.hash.includes('access_token')) {
+    const { data } = await db.auth.getSession();
+    if (data.session) {
+      currentUser = data.session.user;
+      window.history.replaceState(null, '', window.location.pathname);
+      showApp();
+      return;
+    }
+  }
+
   const { data: { session } } = await db.auth.getSession();
-  if (session) { currentUser = session.user; showApp(); }
+  if (session) { currentUser = session.user; showApp(); return; }
+
   db.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
       if (session) { currentUser = session.user; showApp(); }
