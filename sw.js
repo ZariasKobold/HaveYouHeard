@@ -1,7 +1,7 @@
 // Have You Heard? — Service Worker
 // Caches the app shell for fast loads and basic offline support
 
-const CACHE_NAME = 'hyh-v1';
+const CACHE_NAME = 'heardtale-v1';
 const SHELL_ASSETS = [
   '/',
   '/index.html',

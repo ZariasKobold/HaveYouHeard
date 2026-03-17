@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Have You Heard?</title>
-<meta name="description" content="Never lose a recommendation again.">
+<title>HeardTale</title>
+<meta name="description" content="Every recommendation has a story.">
 <meta name="theme-color" content="#0d0d0f">
 
   <!-- PWA Manifest -->
@@ -13,7 +13,7 @@
   <!-- iOS PWA support -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Have You Heard?">
+  <meta name="apple-mobile-web-app-title" content="HeardTale">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
 
   <!-- Android / Chrome install -->
@@ -228,8 +228,8 @@
 <div id="auth-screen">
   <div class="auth-box">
     <div class="auth-logo">
-      <h1>Have You Heard?</h1>
-      <p>Never lose a recommendation again.</p>
+      <h1>HeardTale</h1>
+      <p>Every recommendation has a story.</p>
     </div>
     <div class="auth-tabs">
       <div class="auth-tab active" onclick="switchAuthTab('login')">Sign In</div>
@@ -253,14 +253,14 @@
 <!-- ═══════════════════════════ APP ═══════════════════════════ -->
 <div id="app">
   <div class="topbar">
-    <div class="topbar-logo">Have You Heard?</div>
+    <div class="topbar-logo">HeardTale</div>
     <div class="topbar-search">
-      <input type="text" id="global-search" placeholder="Search everything..." oninput="handleSearch(this.value)">
+      <input type="text" id="global-search" placeholder="Search HeardTale..." oninput="handleSearch(this.value)">
     </div>
     <div class="topbar-actions">
       <button class="icon-btn accent" onclick="openQuickAdd()">+ Quick Add</button>
       <button class="icon-btn" onclick="exportCSV()">↓ Export</button>
-      <button class="icon-btn" onclick="handleSignOut()" title="Sign out">⏻</button>
+      <button class="icon-btn" onclick="handleSignOut()" title="Sign out of HeardTale">⏻</button>
     </div>
   </div>
   <div class="main">
@@ -595,7 +595,7 @@ function renderDashboard() {
     <div class="items-list">
       ${recent.length
         ? recent.map(renderItemRow).join('')
-        : `<div class="empty-state"><div class="empty-icon">🎙️</div><h3>Nothing here yet</h3><p>Hit Quick Add or tap a category to start logging recommendations.</p></div>`
+        : `<div class="empty-state"><div class="empty-icon">📖</div><h3>Nothing here yet</h3><p>Hit Quick Add or tap a category to start logging recommendations.</p></div>`
       }
     </div>`;
 }
@@ -1203,7 +1203,7 @@ init();
 // ─── SERVICE WORKER ───────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    navigator.serviceWorker.register('./sw.js')
       .then(reg => console.log('SW registered:', reg.scope))
       .catch(err => console.log('SW registration failed:', err));
   });
@@ -1221,7 +1221,7 @@ window.addEventListener('beforeinstallprompt', e => {
     btn.id = 'pwa-install-btn';
     btn.className = 'icon-btn';
     btn.textContent = '⬇ Install App';
-    btn.title = 'Install Have You Heard? to your home screen';
+    btn.title = 'Install HeardTale on your home screen';
     btn.onclick = async () => {
       if (!deferredInstallPrompt) return;
       deferredInstallPrompt.prompt();
@@ -1237,7 +1237,7 @@ window.addEventListener('appinstalled', () => {
   const btn = document.getElementById('pwa-install-btn');
   if (btn) btn.remove();
   deferredInstallPrompt = null;
-  showToast('App installed! 🎙️');
+  showToast('App installed! 📖');
 });
 </script>
 </body>

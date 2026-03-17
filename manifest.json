@@ -1,7 +1,7 @@
 {
-  "name": "Have You Heard?",
-  "short_name": "HYH",
-  "description": "Never lose a recommendation again.",
+  "name": "HeardTale",
+  "short_name": "HeardTale",
+  "description": "Every recommendation has a story.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0d0d0f",
