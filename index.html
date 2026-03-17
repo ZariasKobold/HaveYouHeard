@@ -246,6 +246,11 @@
       <div class="form-group"><label>Password</label><input type="password" id="signup-password" placeholder="Minimum 6 characters"></div>
       <button class="btn-primary" onclick="handleSignup()">Create Account</button>
       <div class="auth-error" id="signup-error"></div>
+      <div id="resend-section" style="display:none;text-align:center;margin-top:1rem">
+        <p style="font-size:12px;color:var(--text2);margin-bottom:0.5rem">Didn't receive the email?</p>
+        <button class="btn-sm" id="resend-btn" onclick="resendConfirmation()" style="width:100%;justify-content:center">Resend confirmation email</button>
+        <div id="resend-countdown" style="font-size:11px;color:var(--text3);margin-top:6px"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -513,8 +518,45 @@ async function handleSignup() {
   el.textContent = '';
   if (!email || !password) { el.textContent = 'Please fill in all fields.'; return; }
   const { error } = await db.auth.signUp({ email, password });
-  if (error) el.textContent = error.message;
-  else { el.style.color = 'var(--green)'; el.textContent = 'Account created! Check your email to confirm, then sign in.'; }
+  if (error) { el.textContent = error.message; return; }
+  el.style.color = 'var(--green)';
+  el.textContent = 'Account created! Check your email to confirm, then sign in.';
+  // Show resend section after 60 seconds
+  setTimeout(() => {
+    document.getElementById('resend-section').style.display = 'block';
+    startResendCountdown(60);
+  }, 60000);
+}
+
+let resendTimer = null;
+
+function startResendCountdown(seconds) {
+  const btn = document.getElementById('resend-btn');
+  const countdown = document.getElementById('resend-countdown');
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  let remaining = seconds;
+  countdown.textContent = `You can resend in ${remaining}s`;
+  resendTimer = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(resendTimer);
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      countdown.textContent = '';
+    } else {
+      countdown.textContent = `You can resend in ${remaining}s`;
+    }
+  }, 1000);
+}
+
+async function resendConfirmation() {
+  const email = document.getElementById('signup-email').value.trim();
+  if (!email) { showToast('Enter your email address first'); return; }
+  const { error } = await db.auth.resend({ type: 'signup', email });
+  if (error) { showToast('Error: ' + error.message); return; }
+  showToast('Confirmation email resent!');
+  startResendCountdown(60);
 }
 
 async function handleSignOut() {
