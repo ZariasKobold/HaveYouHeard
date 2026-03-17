@@ -468,23 +468,20 @@ let searchQuery = '';
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 async function init() {
-  // Handle email confirmation token in URL hash
-  if (window.location.hash && window.location.hash.includes('access_token')) {
-    const { data } = await db.auth.getSession();
-    if (data.session) {
-      currentUser = data.session.user;
-      window.history.replaceState(null, '', window.location.pathname);
-      showApp();
-      return;
-    }
-  }
-
-  const { data: { session } } = await db.auth.getSession();
-  if (session) { currentUser = session.user; showApp(); return; }
-
+  // Set up auth state listener FIRST before anything else
+  // This ensures we catch the SIGNED_IN event that fires when
+  // Supabase processes the email confirmation token from the URL hash
   db.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-      if (session) { currentUser = session.user; showApp(); }
+    console.log('Auth event:', event, session ? 'has session' : 'no session');
+    if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+      if (session) {
+        currentUser = session.user;
+        // Clean up the URL if it has tokens in it
+        if (window.location.hash && window.location.hash.includes('access_token')) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+        showApp();
+      }
     }
     if (event === 'SIGNED_OUT') {
       currentUser = null;
@@ -521,11 +518,9 @@ async function handleSignup() {
   if (error) { el.textContent = error.message; return; }
   el.style.color = 'var(--green)';
   el.textContent = 'Account created! Check your email to confirm, then sign in.';
-  // Show resend section after 60 seconds
-  setTimeout(() => {
-    document.getElementById('resend-section').style.display = 'block';
-    startResendCountdown(60);
-  }, 60000);
+  // Show resend section immediately with 60s countdown
+  document.getElementById('resend-section').style.display = 'block';
+  startResendCountdown(60);
 }
 
 let resendTimer = null;
