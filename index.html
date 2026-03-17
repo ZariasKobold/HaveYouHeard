@@ -466,8 +466,14 @@ async function init() {
   const { data: { session } } = await db.auth.getSession();
   if (session) { currentUser = session.user; showApp(); }
   db.auth.onAuthStateChange((event, session) => {
-    if (session) { currentUser = session.user; showApp(); }
-    else { currentUser = null; document.getElementById('app').style.display = 'none'; document.getElementById('auth-screen').style.display = 'flex'; }
+    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      if (session) { currentUser = session.user; showApp(); }
+    }
+    if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('auth-screen').style.display = 'flex';
+    }
   });
 }
 
