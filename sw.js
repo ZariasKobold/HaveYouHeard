@@ -1,7 +1,8 @@
-// Have You Heard? — Service Worker
-// Caches the app shell for fast loads and basic offline support
+// HeardTale — Service Worker
+// Version is injected from APP_VERSION in index.html via cache name
+// Changing CACHE_VERSION busts the cache and triggers an update for all users
 
-const CACHE_NAME = 'heardtale-v1';
+const CACHE_VERSION = 'heardtale-1.4.0';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
@@ -10,35 +11,30 @@ const SHELL_ASSETS = [
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
 
-// Install — cache the app shell
+// Install — cache the app shell, then skip waiting so update activates fast
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      // Cache what we can; don't fail install if external resources are unavailable
-      return Promise.allSettled(
-        SHELL_ASSETS.map(url => cache.add(url).catch(() => {}))
-      );
-    })
+    caches.open(CACHE_VERSION).then(cache =>
+      Promise.allSettled(SHELL_ASSETS.map(url => cache.add(url).catch(() => {})))
+    )
   );
   self.skipWaiting();
 });
 
-// Activate — clean up old caches
+// Activate — delete old caches, then claim all clients immediately
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+      Promise.all(keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Fetch — serve from cache, fall back to network
-// Network-first for Supabase API calls, cache-first for app shell
+// Fetch — network-first for APIs, cache-first for app shell
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Always go network-first for Supabase and external APIs
+  // Always network-first for live data
   if (
     url.hostname.includes('supabase.co') ||
     url.hostname.includes('api.themoviedb.org') ||
@@ -47,33 +43,43 @@ self.addEventListener('fetch', event => {
     url.hostname.includes('boardgamegeek.com')
   ) {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        // Return a simple offline JSON response for API calls
-        return new Response(JSON.stringify({ error: 'offline' }), {
+      fetch(event.request).catch(() =>
+        new Response(JSON.stringify({ error: 'offline' }), {
           headers: { 'Content-Type': 'application/json' }
-        });
-      })
+        })
+      )
     );
     return;
   }
 
-  // Cache-first for everything else (app shell, fonts, scripts)
+  // Network-first for HTML documents so updates are always picked up
+  if (event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        const clone = response.clone();
+        caches.open(CACHE_VERSION).then(cache => cache.put(event.request, clone));
+        return response;
+      }).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // Cache-first for everything else (fonts, scripts, icons)
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
       return fetch(event.request).then(response => {
-        // Cache valid responses for future use
         if (response && response.status === 200 && response.type === 'basic') {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          caches.open(CACHE_VERSION).then(cache => cache.put(event.request, clone));
         }
         return response;
-      }).catch(() => {
-        // If we're offline and there's no cache, return the main page
-        if (event.request.destination === 'document') {
-          return caches.match('/index.html');
-        }
       });
     })
   );
+});
+
+// Notify clients when a new version is available
+self.addEventListener('message', event => {
+  if (event.data === 'skipWaiting') self.skipWaiting();
 });
