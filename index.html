@@ -46,6 +46,35 @@
     --radius: 12px;
     --radius-sm: 8px;
   }
+  body.light-mode {
+    --bg: #f5f3ef;
+    --bg2: #ffffff;
+    --bg3: #ede9e3;
+    --bg4: #e0dbd3;
+    --border: rgba(0,0,0,0.08);
+    --border2: rgba(0,0,0,0.16);
+    --text: #1a1814;
+    --text2: #6b6760;
+    --text3: #a09d97;
+    --accent: #c9a84c;
+    --accent2: #a8883a;
+    --accent-bg: rgba(201,168,76,0.12);
+    --red: #c0392b;
+    --green: #27ae60;
+    --blue: #2980b9;
+    --purple: #8e44ad;
+    --orange: #d35400;
+    --teal: #16a085;
+  }
+  .theme-toggle { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; color: var(--text2); font-size: 16px; display: flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif; font-size: 12px; transition: all 0.2s; }
+  .theme-toggle:hover { border-color: var(--border2); color: var(--text); }
+  .img-picker-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 0.75rem 0; }
+  .img-picker-option { aspect-ratio: 2/3; background: var(--bg3); border: 2px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 1.2rem; transition: all 0.15s; position: relative; }
+  .img-picker-option:hover { border-color: var(--accent); }
+  .img-picker-option.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .img-picker-option img { width: 100%; height: 100%; object-fit: cover; }
+  .img-picker-option .img-check { position: absolute; top: 4px; right: 4px; background: var(--accent); color: #1a1508; border-radius: 50%; width: 18px; height: 18px; display: none; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+  .img-picker-option.selected .img-check { display: flex; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
   h1,h2,h3 { font-family: 'Playfair Display', serif; }
@@ -212,13 +241,94 @@
   .loading { display: flex; align-items: center; justify-content: center; padding: 4rem; color: var(--text3); font-size: 13px; }
 
   /* MOBILE */
+  /* BOTTOM NAV (mobile) */
+  .bottom-nav { display: none; }
+
   @media (max-width: 680px) {
     .sidebar { display: none; }
-    .topbar-search { max-width: none; }
+    .topbar-search { max-width: none; flex: 1; }
     .form-row { grid-template-columns: 1fr; }
     .items-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
     .page-actions { width: 100%; }
     .dash-grid { grid-template-columns: repeat(2, 1fr); }
+
+    /* Slim topbar on mobile — logo + theme + quick add only */
+    .topbar { padding: 0 1rem; gap: 8px; }
+    .topbar-search { display: none; }
+    .topbar-actions .icon-btn:not(.accent):not(#theme-toggle-btn) { display: none; }
+    .topbar-logo { flex: 1; }
+
+    /* Content gets bottom padding so items aren't hidden behind nav */
+    .content { padding-bottom: 80px; }
+
+    /* Bottom nav bar */
+    .bottom-nav {
+      display: flex;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 64px;
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      z-index: 200;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .bottom-nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      color: var(--text3);
+      transition: color 0.15s;
+      font-size: 11px;
+      padding: 8px 4px;
+      position: relative;
+    }
+    .bottom-nav-item.active { color: var(--accent); }
+    .bottom-nav-item .nav-icon { font-size: 20px; line-height: 1; }
+    .bottom-nav-item .nav-label { font-size: 10px; }
+
+    /* Mobile categories drawer */
+    .mobile-cats-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 300;
+      backdrop-filter: blur(4px);
+    }
+    .mobile-cats-drawer {
+      position: fixed;
+      bottom: 64px; left: 0; right: 0;
+      background: var(--bg2);
+      border-top: 1px solid var(--border2);
+      border-radius: 16px 16px 0 0;
+      padding: 1rem;
+      max-height: 70vh;
+      overflow-y: auto;
+      z-index: 301;
+    }
+    .mobile-cats-drawer h3 {
+      font-size: 12px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.75rem;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .mobile-cat-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text2);
+      transition: all 0.15s;
+      font-size: 14px;
+    }
+    .mobile-cat-item:hover, .mobile-cat-item.active { background: var(--accent-bg); color: var(--accent); }
+    .mobile-cat-item .cat-count { margin-left: auto; font-size: 11px; color: var(--text3); background: var(--bg4); padding: 1px 7px; border-radius: 10px; }
   }
 </style>
 </head>
@@ -242,8 +352,8 @@
       <div class="auth-error" id="login-error"></div>
     </div>
     <div id="auth-signup" style="display:none">
-      <div class="form-group"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com"></div>
-      <div class="form-group"><label>Password</label><input type="password" id="signup-password" placeholder="Minimum 6 characters"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')document.getElementById('signup-password').focus()"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="signup-password" placeholder="Minimum 6 characters" onkeydown="if(event.key==='Enter')handleSignup()"></div>
       <button class="btn-primary" onclick="handleSignup()">Create Account</button>
       <div class="auth-error" id="signup-error"></div>
       <div id="resend-section" style="display:none;text-align:center;margin-top:1rem">
@@ -263,9 +373,10 @@
       <input type="text" id="global-search" placeholder="Search HeardTale..." oninput="handleSearch(this.value)">
     </div>
     <div class="topbar-actions">
+      <button class="theme-toggle" id="theme-toggle-btn" onclick="cycleTheme()" title="Toggle theme">🌙 Dark</button>
       <button class="icon-btn accent" onclick="openQuickAdd()">+ Quick Add</button>
       <button class="icon-btn" onclick="exportCSV()">↓ Export</button>
-      <button class="icon-btn" onclick="handleSignOut()" title="Sign out of HeardTale">⏻</button>
+      <button class="icon-btn" onclick="handleSignOut()" title="Sign out of HeardTale">Sign Out</button>
     </div>
   </div>
   <div class="main">
@@ -289,6 +400,35 @@
       <div class="loading">Loading…</div>
     </div>
   </div>
+
+  <!-- BOTTOM NAV (mobile only) -->
+  <nav class="bottom-nav">
+    <div class="bottom-nav-item" id="bnav-dashboard" onclick="showView('dashboard');closeMobileCats()">
+      <span class="nav-icon">◈</span>
+      <span class="nav-label">Home</span>
+    </div>
+    <div class="bottom-nav-item" id="bnav-cats" onclick="toggleMobileCats()">
+      <span class="nav-icon">☰</span>
+      <span class="nav-label">Categories</span>
+    </div>
+    <div class="bottom-nav-item" id="bnav-stats" onclick="showView('stats');closeMobileCats()">
+      <span class="nav-icon">◉</span>
+      <span class="nav-label">Stats</span>
+    </div>
+    <div class="bottom-nav-item" id="bnav-settings" onclick="showView('settings');closeMobileCats()">
+      <span class="nav-icon">⚙</span>
+      <span class="nav-label">Settings</span>
+    </div>
+  </nav>
+</div>
+
+<!-- ═══════════════════════════ MOBILE CATEGORIES DRAWER ═══════════════════════════ -->
+<div id="mobile-cats-overlay" style="display:none" onclick="closeMobileCats()">
+  <div class="mobile-cats-overlay"></div>
+  <div class="mobile-cats-drawer">
+    <h3>Categories</h3>
+    <div id="mobile-cats-list"></div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════ ITEM MODAL ═══════════════════════════ -->
@@ -307,10 +447,14 @@
             <input type="text" id="modal-title" placeholder="Title of the item...">
           </div>
           <div style="display:flex;align-items:center;gap:8px">
-            <button class="btn-sm" onclick="fetchImageForModal()" id="fetch-img-btn">🔍 Auto-fetch image</button>
+            <button class="btn-sm" onclick="fetchImageForModal()" id="fetch-img-btn">🔍 Find images</button>
             <span id="img-fetch-status" style="font-size:11px;color:var(--text3)"></span>
           </div>
         </div>
+      </div>
+      <div id="img-picker-container" style="display:none">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Pick an image</div>
+        <div class="img-picker-grid" id="img-picker-grid"></div>
       </div>
       <div class="form-row">
         <div class="form-field">
@@ -374,7 +518,8 @@
     <div class="modal-footer">
       <button class="btn-sm btn-danger" id="modal-delete-btn" onclick="deleteItem()" style="display:none">Delete</button>
       <button class="btn-sm" onclick="closeItemModal()">Cancel</button>
-      <button class="btn-sm btn-accent" onclick="saveItem()">Save</button>
+      <button class="btn-sm" id="modal-save-add-btn" onclick="saveItem(true)">Save & Add Another</button>
+      <button class="btn-sm btn-accent" onclick="saveItem(false)">Save</button>
     </div>
   </div>
 </div>
@@ -601,8 +746,44 @@ function renderSidebar() {
 
 function setActiveNav(id) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.bottom-nav-item').forEach(n => n.classList.remove('active'));
   const el = document.getElementById(id);
   if (el) el.classList.add('active');
+  // Mirror to bottom nav
+  const bnavMap = { 'nav-dashboard': 'bnav-dashboard', 'nav-stats': 'bnav-stats', 'nav-settings': 'bnav-settings' };
+  const bnavId = bnavMap[id];
+  if (bnavId) { const bel = document.getElementById(bnavId); if (bel) bel.classList.add('active'); }
+  // If it's a category, highlight the Categories bottom nav item
+  if (id.startsWith('nav-cat-')) { const bel = document.getElementById('bnav-cats'); if (bel) bel.classList.add('active'); }
+}
+
+function toggleMobileCats() {
+  const overlay = document.getElementById('mobile-cats-overlay');
+  if (overlay.style.display === 'none' || !overlay.style.display) {
+    renderMobileCats();
+    overlay.style.display = 'block';
+  } else {
+    overlay.style.display = 'none';
+  }
+}
+
+function closeMobileCats() {
+  const overlay = document.getElementById('mobile-cats-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function renderMobileCats() {
+  const list = document.getElementById('mobile-cats-list');
+  if (!list) return;
+  list.innerHTML = categories.map(cat => {
+    const count = allItems.filter(i => i.category_id === cat.id).length;
+    const isActive = currentCatId === cat.id;
+    return `<div class="mobile-cat-item ${isActive ? 'active' : ''}" onclick="showCategoryView('${cat.id}');closeMobileCats()">
+      <span style="font-size:1.2rem">${cat.icon || '📁'}</span>
+      <span>${cat.name}</span>
+      <span class="cat-count">${count}</span>
+    </div>`;
+  }).join('');
 }
 
 function showView(view) {
@@ -631,12 +812,17 @@ function renderDashboard() {
   const backlog = allItems.filter(i => i.status === 'Backlog').length;
   const rated = allItems.filter(i => i.rating);
   const avgRating = rated.length ? (rated.reduce((a, b) => a + b.rating, 0) / rated.length).toFixed(1) : '—';
-  const recent = allItems.slice(0, 10);
+  const recent = allItems.slice(0, 20);
+  const dashMode = localStorage.getItem('dashViewMode') || 'grid';
 
   document.getElementById('main-content').innerHTML = `
     <div class="page-header">
       <h1 class="page-title">Dashboard</h1>
       <div class="page-actions">
+        <div class="view-toggle">
+          <button class="view-btn ${dashMode === 'grid' ? 'active' : ''}" onclick="setDashViewMode('grid')">⊞ Gallery</button>
+          <button class="view-btn ${dashMode === 'list' ? 'active' : ''}" onclick="setDashViewMode('list')">≡ List</button>
+        </div>
         <button class="btn-sm btn-accent" onclick="openItemModal()">+ Add Item</button>
       </div>
     </div>
@@ -647,12 +833,17 @@ function renderDashboard() {
       <div class="stat-card"><div class="stat-label">Avg Rating</div><div class="stat-value" style="color:var(--accent)">${avgRating}</div></div>
     </div>
     <h2 class="section-title">Recently Added</h2>
-    <div class="items-list">
-      ${recent.length
-        ? recent.map(renderItemRow).join('')
-        : `<div class="empty-state"><div class="empty-icon">📖</div><h3>Nothing here yet</h3><p>Hit Quick Add or tap a category to start logging recommendations.</p></div>`
-      }
-    </div>`;
+    ${recent.length
+      ? dashMode === 'grid'
+        ? `<div class="items-grid">${recent.map(renderItemCard).join('')}</div>`
+        : `<div class="items-list">${recent.map(renderItemRow).join('')}</div>`
+      : `<div class="empty-state"><div class="empty-icon">📖</div><h3>Nothing here yet</h3><p>Hit Quick Add or tap a category to start logging recommendations.</p></div>`
+    }`;
+}
+
+function setDashViewMode(mode) {
+  localStorage.setItem('dashViewMode', mode);
+  renderDashboard();
 }
 
 // ─── CATEGORY VIEW ───────────────────────────────────────────────────────────
@@ -798,6 +989,8 @@ function openItemModal(catId, itemId) {
   document.getElementById('modal-priority').value = '2';
   document.getElementById('modal-delete-btn').style.display = 'none';
   document.getElementById('modal-title-text').textContent = 'Add Item';
+  document.getElementById('modal-save-add-btn').style.display = 'inline-flex';
+  document.getElementById('img-picker-container').style.display = 'none';
 
   if (catId) document.getElementById('modal-category').value = catId;
   else if (currentCatId) document.getElementById('modal-category').value = currentCatId;
@@ -806,6 +999,7 @@ function openItemModal(catId, itemId) {
     const item = allItems.find(i => i.id === itemId);
     if (item) {
       document.getElementById('modal-title-text').textContent = 'Edit Item';
+      document.getElementById('modal-save-add-btn').style.display = 'none';
       document.getElementById('modal-title').value = item.title;
       document.getElementById('modal-category').value = item.category_id;
       document.getElementById('modal-status').value = item.status;
@@ -861,22 +1055,29 @@ async function fetchImageForModal() {
   const statusEl = document.getElementById('img-fetch-status');
   const btn = document.getElementById('fetch-img-btn');
   statusEl.textContent = 'Searching…';
+  statusEl.style.color = 'var(--text3)';
   btn.disabled = true;
+  document.getElementById('img-picker-container').style.display = 'none';
 
   try {
-    let url = null;
-    if (source === 'openlibrary') url = await fetchOpenLibrary(title);
-    else if (source === 'tmdb') url = await fetchTMDB(title);
-    else if (source === 'rawg') url = await fetchRAWG(title);
-    else if (source === 'bgg') url = await fetchBGG(title);
+    let urls = [];
+    if (source === 'openlibrary') urls = await fetchOpenLibraryMulti(title);
+    else if (source === 'tmdb') urls = await fetchTMDBMulti(title);
+    else if (source === 'rawg') urls = await fetchRAWGMulti(title);
+    else if (source === 'bgg') urls = await fetchBGGMulti(title);
 
-    if (!url) url = await fetchOpenLibrary(title) || await fetchTMDB(title) || await fetchRAWG(title);
+    // Fallback — try other sources if primary returned nothing
+    if (!urls.length) {
+      const [ol, tmdb, rawg] = await Promise.all([fetchOpenLibraryMulti(title), fetchTMDBMulti(title), fetchRAWGMulti(title)]);
+      urls = [...ol, ...tmdb, ...rawg];
+    }
 
-    if (url) {
-      document.getElementById('modal-image-url').value = url;
-      previewImage(url);
+    urls = urls.filter(Boolean).slice(0, 5);
+
+    if (urls.length) {
       statusEl.style.color = 'var(--green)';
-      statusEl.textContent = '✓ Image found';
+      statusEl.textContent = `${urls.length} image${urls.length > 1 ? 's' : ''} found — pick one`;
+      renderImagePicker(urls);
     } else {
       statusEl.style.color = 'var(--text3)';
       statusEl.textContent = 'Not found — try pasting a URL manually';
@@ -887,48 +1088,73 @@ async function fetchImageForModal() {
   btn.disabled = false;
 }
 
-async function fetchOpenLibrary(title) {
-  try {
-    const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=1`);
-    const d = await r.json();
-    const coverId = d.docs?.[0]?.cover_i;
-    return coverId ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg` : null;
-  } catch { return null; }
+function renderImagePicker(urls) {
+  const grid = document.getElementById('img-picker-grid');
+  const container = document.getElementById('img-picker-container');
+  grid.innerHTML = urls.map((url, i) => `
+    <div class="img-picker-option" onclick="selectPickerImage('${url}', this)" data-url="${url}">
+      <img src="${url}" onerror="this.parentElement.style.display='none'" loading="lazy">
+      <div class="img-check">✓</div>
+    </div>
+  `).join('');
+  container.style.display = 'block';
+  // Auto-select first
+  const first = grid.querySelector('.img-picker-option');
+  if (first) selectPickerImage(urls[0], first);
 }
 
-async function fetchTMDB(title) {
+function selectPickerImage(url, el) {
+  document.querySelectorAll('.img-picker-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('modal-image-url').value = url;
+  previewImage(url);
+}
+
+async function fetchOpenLibraryMulti(title) {
+  try {
+    const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=5`);
+    const d = await r.json();
+    return (d.docs || []).map(doc => doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : null).filter(Boolean);
+  } catch { return []; }
+}
+
+async function fetchTMDBMulti(title) {
   try {
     const key = '4a3b711b67bee2e30843ca96d68a09c1';
     const r = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${key}&query=${encodeURIComponent(title)}&page=1`);
     const d = await r.json();
-    const path = d.results?.[0]?.poster_path;
-    return path ? `https://image.tmdb.org/t/p/w500${path}` : null;
-  } catch { return null; }
+    return (d.results || []).map(item => item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null).filter(Boolean).slice(0, 5);
+  } catch { return []; }
 }
 
-async function fetchRAWG(title) {
+async function fetchRAWGMulti(title) {
   try {
     const key = '5a0a9c4e63b0490da52daf9c99da4e05';
-    const r = await fetch(`https://api.rawg.io/api/games?key=${key}&search=${encodeURIComponent(title)}&page_size=1`);
+    const r = await fetch(`https://api.rawg.io/api/games?key=${key}&search=${encodeURIComponent(title)}&page_size=5`);
     const d = await r.json();
-    return d.results?.[0]?.background_image || null;
-  } catch { return null; }
+    return (d.results || []).map(item => item.background_image).filter(Boolean);
+  } catch { return []; }
 }
 
-async function fetchBGG(title) {
+async function fetchBGGMulti(title) {
   try {
-    const r = await fetch(`https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(title)}&type=boardgame&exact=1`);
+    const r = await fetch(`https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(title)}&type=boardgame`);
     const text = await r.text();
     const parser = new DOMParser();
     const xml = parser.parseFromString(text, 'text/xml');
-    const id = xml.querySelector('item')?.getAttribute('id');
-    if (!id) return null;
-    const r2 = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${id}`);
-    const text2 = await r2.text();
-    const xml2 = parser.parseFromString(text2, 'text/xml');
-    return xml2.querySelector('image')?.textContent?.trim() || null;
-  } catch { return null; }
+    const ids = [...xml.querySelectorAll('item')].slice(0, 5).map(el => el.getAttribute('id')).filter(Boolean);
+    const images = await Promise.all(ids.map(async id => {
+      try {
+        const r2 = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${id}`);
+        const text2 = await r2.text();
+        const xml2 = parser.parseFromString(text2, 'text/xml');
+        return xml2.querySelector('image')?.textContent?.trim() || null;
+      } catch { return null; }
+    }));
+    return images.filter(Boolean);
+  } catch { return []; }
 }
+
 
 // ─── RATINGS & TAGS ───────────────────────────────────────────────────────────
 function renderStars(rating) {
@@ -961,7 +1187,7 @@ function renderTagPills() {
 function removeTag(i) { currentTags.splice(i, 1); renderTagPills(); }
 
 // ─── SAVE / DELETE ────────────────────────────────────────────────────────────
-async function saveItem() {
+async function saveItem(addAnother = false) {
   const title = document.getElementById('modal-title').value.trim();
   if (!title) { showToast('Title is required'); return; }
 
@@ -1003,11 +1229,37 @@ async function saveItem() {
   }
 
   showToast(editingItemId ? 'Item updated!' : 'Item added!');
-  closeItemModal();
   await loadItems();
   renderSidebar();
-  if (currentView === 'category') renderCategoryView();
-  else renderDashboard();
+
+  if (addAnother && !editingItemId) {
+    // Keep modal open, reset form fields but keep category
+    const catId = document.getElementById('modal-category').value;
+    currentTags = [];
+    document.getElementById('modal-rating').value = '0';
+    renderStars(0);
+    document.getElementById('tags-input-row').innerHTML = '<input type="text" id="tag-input" placeholder="Add tag…" onkeydown="handleTagInput(event)">';
+    document.getElementById('modal-image-url').value = '';
+    document.getElementById('modal-img-preview').innerHTML = '<span id="modal-img-placeholder">📁</span>';
+    document.getElementById('img-fetch-status').textContent = '';
+    document.getElementById('img-picker-container').style.display = 'none';
+    document.getElementById('modal-date-added').value = new Date().toISOString().split('T')[0];
+    document.getElementById('modal-date-engaged').value = '';
+    document.getElementById('modal-notes').value = '';
+    document.getElementById('modal-source').value = '';
+    document.getElementById('modal-title').value = '';
+    document.getElementById('modal-status').value = 'Backlog';
+    document.getElementById('modal-priority').value = '2';
+    document.getElementById('modal-category').value = catId;
+    updateModalPlaceholder();
+    document.getElementById('modal-title').focus();
+    if (currentView === 'category') renderCategoryView();
+    else renderDashboard();
+  } else {
+    closeItemModal();
+    if (currentView === 'category') renderCategoryView();
+    else renderDashboard();
+  }
 }
 
 async function deleteItem() {
@@ -1160,8 +1412,19 @@ function renderStats() {
 
 // ─── SETTINGS ────────────────────────────────────────────────────────────────
 function renderSettings() {
+  const currentTheme = localStorage.getItem('theme') || 'dark';
   document.getElementById('main-content').innerHTML = `
     <div class="page-header"><h1 class="page-title">Settings</h1></div>
+    <div class="settings-section">
+      <h3>Appearance</h3>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Choose your preferred theme.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${['dark','light','system'].map(t => `
+          <button class="btn-sm ${currentTheme === t ? 'btn-accent' : ''}" onclick="applyTheme('${t}');renderSettings()">
+            ${{ dark:'🌙 Dark', light:'☀️ Light', system:'⚙️ System' }[t]}
+          </button>`).join('')}
+      </div>
+    </div>
     <div class="settings-section">
       <h3>Categories</h3>
       ${categories.map(cat => `<div class="cat-manage-row">
@@ -1252,7 +1515,36 @@ function showToast(msg) {
   setTimeout(() => t.remove(), 2800);
 }
 
+// ─── THEME ────────────────────────────────────────────────────────────────────
+const THEMES = ['dark', 'light', 'system'];
+const THEME_LABELS = { dark: '🌙 Dark', light: '☀️ Light', system: '⚙️ System' };
+
+function applyTheme(theme) {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const useDark = theme === 'dark' || (theme === 'system' && prefersDark);
+  document.body.classList.toggle('light-mode', !useDark);
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) btn.textContent = THEME_LABELS[theme] || '🌙 Dark';
+  localStorage.setItem('theme', theme);
+}
+
+function cycleTheme() {
+  const current = localStorage.getItem('theme') || 'dark';
+  const next = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length];
+  applyTheme(next);
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('theme') || 'dark';
+  applyTheme(saved);
+  // Re-apply if system preference changes
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (localStorage.getItem('theme') === 'system') applyTheme('system');
+  });
+}
+
 // ─── START ────────────────────────────────────────────────────────────────────
+initTheme();
 init();
 
 // ─── SERVICE WORKER ───────────────────────────────────────────────────────────
