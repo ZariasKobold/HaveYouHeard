@@ -292,7 +292,9 @@
 
     /* Mobile categories drawer */
     .mobile-cats-overlay {
-      position: fixed; inset: 0;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      bottom: 64px; /* stop above bottom nav */
       background: rgba(0,0,0,0.6);
       z-index: 300;
       backdrop-filter: blur(4px);
@@ -304,10 +306,11 @@
       border-top: 1px solid var(--border2);
       border-radius: 16px 16px 0 0;
       padding: 1rem;
-      max-height: 70vh;
+      max-height: 60vh;
       overflow-y: auto;
-      z-index: 301;
+      z-index: 302;
     }
+    .bottom-nav { z-index: 400; } /* always on top */
     .mobile-cats-drawer h3 {
       font-size: 12px;
       color: var(--text3);
@@ -423,8 +426,8 @@
 </div>
 
 <!-- ═══════════════════════════ MOBILE CATEGORIES DRAWER ═══════════════════════════ -->
-<div id="mobile-cats-overlay" style="display:none" onclick="closeMobileCats()">
-  <div class="mobile-cats-overlay"></div>
+<div id="mobile-cats-overlay" style="display:none">
+  <div class="mobile-cats-overlay" onclick="closeMobileCats()"></div>
   <div class="mobile-cats-drawer">
     <h3>Categories</h3>
     <div id="mobile-cats-list"></div>
@@ -594,6 +597,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
+const APP_VERSION = '1.3.0'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1316,10 +1320,8 @@ function renderStats() {
     const catCompleted = catItems.filter(i => i.status === 'Completed');
     const catRated = catItems.filter(i => i.rating);
     return {
-      name: cat.name,
-      icon: cat.icon,
-      total: catItems.length,
-      completed: catCompleted.length,
+      name: cat.name, icon: cat.icon,
+      total: catItems.length, completed: catCompleted.length,
       rate: catItems.length ? Math.round(catCompleted.length / catItems.length * 100) : 0,
       avgRating: catRated.length ? (catRated.reduce((a, b) => a + b.rating, 0) / catRated.length).toFixed(1) : 0
     };
@@ -1340,8 +1342,12 @@ function renderStats() {
       if (i.rating) { recMap[k].rated++; recMap[k].totalRating += i.rating; }
     }
   });
-  const topRecs = Object.entries(recMap).map(([name, v]) => ({ name, count: v.count, avgRating: v.rated ? (v.totalRating / v.rated).toFixed(1) : null })).sort((a, b) => b.count - a.count).slice(0, 8);
-  const maxRec = topRecs.length ? topRecs[0].count : 1;
+  const allRecs = Object.entries(recMap).map(([name, v]) => ({
+    name, count: v.count,
+    avgRating: v.rated ? (v.totalRating / v.rated).toFixed(1) : null
+  })).sort((a, b) => b.count - a.count);
+  const topRecs = allRecs.slice(0, 5);
+  const maxRec = allRecs.length ? allRecs[0].count : 1;
 
   const tagMap = {};
   allItems.forEach(i => (i.tags || []).forEach(t => { tagMap[t] = (tagMap[t] || 0) + 1; }));
@@ -1390,14 +1396,14 @@ function renderStats() {
         </div>`).join(''); })()}
       </div>
     </div>` : ''}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
       <div class="chart-card">
         <div class="section-title">Top Recommenders</div>
-        ${topRecs.length ? `<div class="recommender-list">${topRecs.map(r => `<div class="rec-row">
+        ${topRecs.length ? `<div class="recommender-list">${topRecs.map(r => `<div class="rec-row" style="cursor:pointer" onclick="showRecommenderItems('${r.name.replace(/'/g, "\\'")}')">
           <div class="rec-avatar">${r.name.substring(0, 2).toUpperCase()}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}</div>
-            ${r.avgRating ? `<div style="font-size:11px;color:var(--accent)">★ ${r.avgRating} avg</div>` : ''}
+            <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--accent)">${r.name}</div>
+            ${r.avgRating ? `<div style="font-size:11px;color:var(--text2)">★ ${r.avgRating} avg</div>` : ''}
           </div>
           <div class="rec-bar-wrap"><div class="rec-bar" style="width:${Math.round(r.count / maxRec * 100)}%"></div></div>
           <div class="rec-count">${r.count}</div>
@@ -1407,6 +1413,33 @@ function renderStats() {
         <div class="section-title">Top Tags</div>
         ${topTags.length ? `<div style="display:flex;flex-wrap:wrap;gap:7px">${topTags.map(([t, c]) => `<span class="tag-pill">${t} <span style="opacity:0.5">${c}</span></span>`).join('')}</div>` : '<p style="color:var(--text3);font-size:13px">Tag your items to see breakdowns here!</p>'}
       </div>
+    </div>
+    ${allRecs.length > 0 ? `<div class="chart-card">
+      <div class="section-title">All Recommenders</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
+        ${allRecs.map(r => `<div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--bg3);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.15s" onclick="showRecommenderItems('${r.name.replace(/'/g, "\\'")}')">
+          <div class="rec-avatar" style="flex-shrink:0">${r.name.substring(0, 2).toUpperCase()}</div>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:12px;font-weight:500;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}</div>
+            <div style="font-size:11px;color:var(--text2)">${r.count} rec${r.count !== 1 ? 's' : ''}${r.avgRating ? ' · ★ ' + r.avgRating : ''}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>` : ''}`;
+}
+
+function showRecommenderItems(name) {
+  const items = allItems.filter(i => i.source && i.source.trim() === name);
+  const initials = name.substring(0, 2).toUpperCase();
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header">
+      <button class="btn-sm" onclick="renderStats()" style="font-size:18px;padding:4px 8px">←</button>
+      <div class="rec-avatar" style="width:36px;height:36px;font-size:14px">${initials}</div>
+      <h1 class="page-title">${name}</h1>
+      <span style="color:var(--text3);font-size:13px;margin-left:4px">${items.length} recommendation${items.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div class="items-list">
+      ${items.length ? items.map(renderItemRow).join('') : '<div class="empty-state"><div class="empty-icon">🔍</div><p>No items found</p></div>'}
     </div>`;
 }
 
@@ -1423,6 +1456,14 @@ function renderSettings() {
           <button class="btn-sm ${currentTheme === t ? 'btn-accent' : ''}" onclick="applyTheme('${t}');renderSettings()">
             ${{ dark:'🌙 Dark', light:'☀️ Light', system:'⚙️ System' }[t]}
           </button>`).join('')}
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3>Install App</h3>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Install HeardTale on your home screen for quick access.</p>
+      <div id="settings-install-area">
+        <button class="btn-sm" onclick="triggerInstallPrompt()" id="settings-install-btn">⬇ Install App</button>
+        <p style="font-size:12px;color:var(--text3);margin-top:8px" id="settings-install-note">On iOS: tap the Share button in Safari, then "Add to Home Screen".</p>
       </div>
     </div>
     <div class="settings-section">
@@ -1444,7 +1485,37 @@ function renderSettings() {
       <h3>Account</h3>
       <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">${currentUser?.email}</p>
       <button class="btn-sm btn-danger" onclick="handleSignOut()">Sign Out</button>
+    </div>
+    <div style="text-align:center;padding:1.5rem 0 0.5rem;color:var(--text3);font-size:11px">
+      HeardTale v${APP_VERSION}
     </div>`;
+
+  // Update install button state
+  const btn = document.getElementById('settings-install-btn');
+  const note = document.getElementById('settings-install-note');
+  if (deferredInstallPrompt) {
+    btn.style.display = 'inline-flex';
+    note.style.display = 'none';
+  } else if (window.matchMedia('(display-mode: standalone)').matches) {
+    btn.style.display = 'none';
+    note.textContent = 'HeardTale is already installed on this device.';
+    note.style.color = 'var(--green)';
+  } else {
+    btn.style.display = 'none';
+    note.style.display = 'block';
+  }
+}
+
+function triggerInstallPrompt() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(({ outcome }) => {
+    if (outcome === 'accepted') {
+      deferredInstallPrompt = null;
+      showToast('App installed! 📖');
+      renderSettings();
+    }
+  });
 }
 
 function openCatModal() {
