@@ -597,7 +597,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '1.4.0'; // Update this with each deployment
+const APP_VERSION = '1.5.0'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1063,17 +1063,27 @@ async function fetchImageForModal() {
   btn.disabled = true;
   document.getElementById('img-picker-container').style.display = 'none';
 
-  try {
-    let urls = [];
-    if (source === 'openlibrary') urls = await fetchOpenLibraryMulti(title);
-    else if (source === 'tmdb') urls = await fetchTMDBMulti(title);
-    else if (source === 'rawg') urls = await fetchRAWGMulti(title);
-    else if (source === 'bgg') urls = await fetchBGGMulti(title);
+  // Each source maps to exactly one API — no cross-contamination
+  const SOURCE_FETCHERS = {
+    tmdb:        () => fetchTMDBMulti(title),
+    openlibrary: () => fetchOpenLibraryMulti(title),
+    rawg:        () => fetchRAWGMulti(title),
+    bgg:         () => fetchBGGMulti(title),
+    places:      () => fetchTMDBMulti(title), // fallback for places
+    ai:          () => fetchTMDBMulti(title), // fallback for custom cats
+  };
 
-    // Fallback — try other sources if primary returned nothing
+  try {
+    const fetcher = SOURCE_FETCHERS[source] || SOURCE_FETCHERS.ai;
+    let urls = await fetcher();
+
+    // If primary source returns nothing, only try a second source
+    // that makes sense for that category — never mix unrelated APIs
     if (!urls.length) {
-      const [ol, tmdb, rawg] = await Promise.all([fetchOpenLibraryMulti(title), fetchTMDBMulti(title), fetchRAWGMulti(title)]);
-      urls = [...ol, ...tmdb, ...rawg];
+      if (source === 'tmdb') urls = await fetchTMDBMulti(title + ' film');
+      else if (source === 'rawg') urls = await fetchRAWGMulti(title.split(':')[0]);
+      else if (source === 'bgg') urls = await fetchBGGMulti(title.split(':')[0]);
+      else if (source === 'openlibrary') urls = await fetchOpenLibraryMulti(title.split(':')[0]);
     }
 
     urls = urls.filter(Boolean).slice(0, 5);
