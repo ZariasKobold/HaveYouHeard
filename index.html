@@ -678,7 +678,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.0.3'; // Update this with each deployment
+const APP_VERSION = '2.0.4'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -2447,32 +2447,82 @@ async function renderAdminDashboard() {
   }
 }
 
-function renderAdminUserRow(user, extra) {
+function renderAdminUserRow(user, extra, email) {
   const joined = user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—';
+  const displayName = user.username ? `@${user.username}` : `(no username)`;
+  const subtext = email || (extra || 'Joined ' + joined);
+
   return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-    <div class="rec-avatar" style="flex-shrink:0">${(user.username||'?').substring(0,2).toUpperCase()}</div>
+    <div class="rec-avatar" style="flex-shrink:0">${(user.username || email || '?').substring(0,2).toUpperCase()}</div>
     <div style="flex:1;min-width:0">
-      <div style="font-size:13px;font-weight:500">@${user.username || '(no username)'}</div>
-      <div style="font-size:11px;color:var(--text3)">${extra || 'Joined ' + joined}</div>
+      <div style="font-size:13px;font-weight:500">${displayName}</div>
+      <div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${subtext}</div>
     </div>
-    <div style="display:flex;gap:4px;align-items:center">
+    <div style="display:flex;gap:4px;align-items:center;flex-shrink:0">
       ${user.is_admin ? '<span style="font-size:10px;padding:2px 6px;background:rgba(224,107,107,0.15);color:var(--red);border-radius:6px">admin</span>' : ''}
       ${user.is_pro ? '<span style="font-size:10px;padding:2px 6px;background:var(--accent-bg);color:var(--accent);border-radius:6px">pro</span>' : ''}
-      <button class="btn-sm" onclick="adminTogglePro('${user.id}','${user.username}',${!!user.is_pro})" style="font-size:11px;padding:4px 8px">${user.is_pro ? 'Revoke Pro' : 'Grant Pro'}</button>
+      ${user._no_profile
+        ? `<button class="btn-sm" onclick="adminGrantProById('${user.id}','${email}')" style="font-size:11px;padding:4px 8px">Grant Pro</button>`
+        : `<button class="btn-sm" onclick="adminTogglePro('${user.id}','${user.username || user.id}',${!!user.is_pro})" style="font-size:11px;padding:4px 8px">${user.is_pro ? 'Revoke Pro' : 'Grant Pro'}</button>`
+      }
     </div>
   </div>`;
 }
 
 async function adminSearch() {
-  const q = document.getElementById('admin-search-input').value.trim().toLowerCase();
+  const q = document.getElementById('admin-search-input').value.trim();
   const resultsEl = document.getElementById('admin-search-results');
   if (!q) { resultsEl.innerHTML = ''; return; }
   resultsEl.innerHTML = '<div class="wtw-loading">Searching…</div>';
 
-  const { data } = await db.from('profiles').select('*').ilike('username', `%${q}%`).limit(10);
-  resultsEl.innerHTML = (data || []).length
-    ? (data || []).map(u => renderAdminUserRow(u)).join('')
-    : '<p style="color:var(--text3);font-size:13px">No users found</p>';
+  // Search profiles by username
+  const { data: profileResults } = await db.from('profiles').select('*').ilike('username', `%${q}%`).limit(10);
+
+  // Also search auth.users by email via our admin function
+  const { data: emailResults } = await db.rpc('admin_get_user_by_email', { search_email: q });
+
+  // Merge results — for email matches, try to find their profile too
+  const merged = [...(profileResults || [])];
+  for (const authUser of (emailResults || [])) {
+    // Skip if already in profile results
+    if (merged.find(p => p.id === authUser.id)) continue;
+    // Try to get their profile
+    const { data: profile } = await db.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
+    if (profile) {
+      merged.push(profile);
+    } else {
+      // No profile yet — show them with just auth data
+      merged.push({
+        id: authUser.id,
+        username: null,
+        email: authUser.email,
+        created_at: authUser.created_at,
+        is_pro: false,
+        is_admin: false,
+        _no_profile: true
+      });
+    }
+  }
+
+  if (!merged.length) {
+    resultsEl.innerHTML = '<p style="color:var(--text3);font-size:13px">No users found</p>';
+    return;
+  }
+
+  resultsEl.innerHTML = merged.map(u => renderAdminUserRow(u, null, u._no_profile ? u.email : null)).join('');
+}
+
+async function adminGrantProById(userId, email) {
+  const { error } = await db.from('profiles').upsert({
+    id: userId,
+    username: email.split('@')[0].replace(/[^a-z0-9_]/gi, '_').toLowerCase().substring(0, 20),
+    privacy: 'private',
+    is_pro: true,
+    pro_granted_at: new Date().toISOString()
+  }, { onConflict: 'id' });
+  if (error) { showToast('Error: ' + error.message); return; }
+  showToast(`Pro granted to ${email} ✓`);
+  renderAdminDashboard();
 }
 
 async function adminTogglePro(userId, username, currentlyPro) {
