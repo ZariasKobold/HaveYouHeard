@@ -379,6 +379,7 @@
       <div class="auth-error" id="login-error"></div>
     </div>
     <div id="auth-signup" style="display:none">
+      <div class="form-group"><label>Username</label><input type="text" id="signup-username" placeholder="yourname" onkeydown="if(event.key==='Enter')document.getElementById('signup-email').focus()" style="text-transform:lowercase"></div>
       <div class="form-group"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')document.getElementById('signup-password').focus()"></div>
       <div class="form-group"><label>Password</label><input type="password" id="signup-password" placeholder="Minimum 6 characters" onkeydown="if(event.key==='Enter')handleSignup()"></div>
       <button class="btn-primary" onclick="handleSignup()">Create Account</button>
@@ -615,17 +616,73 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════ USERNAME SETUP MODAL ═══════════════════════════ -->
+<div class="modal-overlay" id="username-modal" style="display:none">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2 class="modal-title">Choose your username</h2>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1.25rem">Your username is how others will find and share your Tales. Choose wisely — you can change it later in Settings.</p>
+      <div class="form-field">
+        <label>Username</label>
+        <div style="display:flex;align-items:center;gap:0;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+          <span style="padding:9px 10px;color:var(--text3);font-size:13px;border-right:1px solid var(--border);white-space:nowrap">heardtale.com/tale/</span>
+          <input type="text" id="username-input" placeholder="yourname" style="border:none;border-radius:0;flex:1;background:transparent" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_]/g,'')">
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px">Letters, numbers, and underscores only</div>
+      </div>
+      <div class="auth-error" id="username-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm btn-accent" onclick="saveUsername()">Save Username</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ SHARE MODAL ═══════════════════════════ -->
+<div class="modal-overlay" id="share-modal" style="display:none" onclick="if(event.target===this)closeShareModal()">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2 class="modal-title">Share this Tale</h2>
+      <button class="modal-close" onclick="closeShareModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="share-item-preview" style="display:flex;gap:12px;align-items:center;padding:12px;background:var(--bg3);border-radius:var(--radius-sm);margin-bottom:1.25rem"></div>
+      <div class="form-field">
+        <label>Visibility for this Tale</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="share-visibility-btns"></div>
+      </div>
+      <div class="form-field" id="share-link-section" style="display:none">
+        <label>Share link</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="share-link-input" readonly style="flex:1;font-size:12px;color:var(--text2)">
+          <button class="btn-sm btn-accent" onclick="copyShareLink()">Copy</button>
+        </div>
+      </div>
+      <div id="share-private-note" style="font-size:13px;color:var(--text3);display:none">
+        This Tale is private — only you can see it. Change the visibility above to get a share link.
+      </div>
+    </div>
+    <div class="modal-footer" id="share-native-btn-row">
+      <button class="btn-sm" onclick="closeShareModal()">Done</button>
+      <button class="btn-sm btn-accent" id="share-native-btn" onclick="nativeShare()" style="display:none">📤 Share</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.0.0'; // Update this with each deployment
+const APP_VERSION = '2.0.1'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let currentUser = null;
+let currentProfile = null;
 let categories = [];
 let allItems = [];
 let currentView = 'dashboard';
@@ -680,16 +737,28 @@ async function handleLogin() {
 }
 
 async function handleSignup() {
+  const username = document.getElementById('signup-username').value.trim().toLowerCase();
   const email = document.getElementById('signup-email').value.trim();
   const password = document.getElementById('signup-password').value;
   const el = document.getElementById('signup-error');
   el.textContent = '';
+
+  if (!username) { el.textContent = 'Please choose a username.'; return; }
+  if (!/^[a-z0-9_]{3,20}$/.test(username)) { el.textContent = 'Username must be 3-20 characters, letters/numbers/underscores only.'; return; }
   if (!email || !password) { el.textContent = 'Please fill in all fields.'; return; }
-  const { error } = await db.auth.signUp({ email, password });
+
+  // Check username availability
+  const { data: existing } = await db.from('profiles').select('id').eq('username', username).maybeSingle();
+  if (existing) { el.textContent = 'That username is already taken — try another.'; return; }
+
+  const { data: signUpData, error } = await db.auth.signUp({ email, password });
   if (error) { el.textContent = error.message; return; }
+
+  // Store username in localStorage so we can create the profile after email confirmation
+  localStorage.setItem('pendingUsername', username);
+
   el.style.color = 'var(--green)';
   el.textContent = 'Account created! Check your email to confirm, then sign in.';
-  // Show resend section immediately with 60s countdown
   document.getElementById('resend-section').style.display = 'block';
   startResendCountdown(60);
 }
@@ -733,10 +802,58 @@ async function handleSignOut() {
 async function showApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
+  await loadProfile();
   await loadCategories();
   await loadItems();
   renderSidebar();
   showView('dashboard');
+
+  // Check if profile exists, if not prompt for username
+  if (!currentProfile) {
+    const pending = localStorage.getItem('pendingUsername');
+    if (pending) {
+      // Auto-create profile with pending username from signup
+      await createProfile(pending);
+    } else {
+      // Existing user without profile — prompt them
+      setTimeout(() => showUsernameModal(), 1000);
+    }
+  }
+}
+
+async function loadProfile() {
+  const { data } = await db.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
+  currentProfile = data || null;
+}
+
+async function createProfile(username) {
+  const { data, error } = await db.from('profiles').insert({
+    id: currentUser.id,
+    username,
+    privacy: 'private'
+  }).select().single();
+  if (!error) {
+    currentProfile = data;
+    localStorage.removeItem('pendingUsername');
+  }
+}
+
+function showUsernameModal() {
+  document.getElementById('username-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('username-input').focus(), 100);
+}
+
+async function saveUsername() {
+  const username = document.getElementById('username-input').value.trim().toLowerCase();
+  const el = document.getElementById('username-error');
+  el.textContent = '';
+  if (!/^[a-z0-9_]{3,20}$/.test(username)) { el.textContent = 'Username must be 3-20 characters, letters/numbers/underscores only.'; return; }
+  const { data: existing } = await db.from('profiles').select('id').eq('username', username).maybeSingle();
+  if (existing && existing.id !== currentUser.id) { el.textContent = 'That username is taken — try another.'; return; }
+  await createProfile(username);
+  document.getElementById('username-modal').style.display = 'none';
+  showToast('Username set! Your Tales are ready to share. 📖');
+  renderSettings();
 }
 
 async function loadCategories() {
@@ -1458,6 +1575,7 @@ function openItemDetail(itemId) {
     <div class="page-header" style="margin-bottom:1rem">
       <button class="btn-sm" onclick="closeItemDetail()" style="font-size:18px;padding:4px 10px">←</button>
       <div style="flex:1"></div>
+      <button class="btn-sm" onclick="openShareModal('${item.id}')">📤 Share</button>
       <button class="btn-sm btn-accent" onclick="openItemModal(null,'${item.id}')">✏️ Edit</button>
     </div>
 
@@ -1516,6 +1634,104 @@ function closeItemDetail() {
     setActiveNav('nav-dashboard');
     renderDashboard();
   }
+}
+
+// ─── SHARING ──────────────────────────────────────────────────────────────────
+let sharingItemId = null;
+
+async function openShareModal(itemId) {
+  sharingItemId = itemId;
+  const item = allItems.find(i => i.id === itemId);
+  const cat = categories.find(c => c.id === item?.category_id);
+  if (!item) return;
+
+  // Preview
+  const preview = document.getElementById('share-item-preview');
+  preview.innerHTML = `
+    ${item.image_url ? `<img src="${item.image_url}" style="width:48px;height:64px;object-fit:cover;border-radius:6px;flex-shrink:0">` : `<div style="width:48px;height:64px;background:var(--bg4);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">${cat?.icon||'📖'}</div>`}
+    <div style="min-width:0">
+      <div style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.title}</div>
+      <div style="font-size:12px;color:var(--text2)">${cat?.name||''}</div>
+      ${item.source ? `<div style="font-size:11px;color:var(--text3)">Tale from ${item.source}</div>` : ''}
+    </div>`;
+
+  // Current visibility
+  const vis = item.share_override || (currentProfile?.privacy || 'private');
+  renderShareVisibilityBtns(vis, item);
+  updateShareLink(vis, item);
+
+  // Native share button
+  const nativeBtn = document.getElementById('share-native-btn');
+  if (navigator.share) nativeBtn.style.display = 'inline-flex';
+  else nativeBtn.style.display = 'none';
+
+  document.getElementById('share-modal').style.display = 'flex';
+}
+
+function renderShareVisibilityBtns(currentVis, item) {
+  const btns = document.getElementById('share-visibility-btns');
+  const options = [
+    { value: 'private', label: '🔒 Private', desc: 'Only you' },
+    { value: 'friends', label: '👥 Friends', desc: 'Mutual follows' },
+    { value: 'public', label: '🌐 Public', desc: 'Anyone with link' },
+  ];
+  btns.innerHTML = options.map(o => `
+    <button class="btn-sm ${currentVis === o.value ? 'btn-accent' : ''}"
+      onclick="setItemVisibility('${item.id}','${o.value}')"
+      style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 14px">
+      <span>${o.label}</span>
+      <span style="font-size:10px;opacity:0.7">${o.desc}</span>
+    </button>`).join('');
+}
+
+async function setItemVisibility(itemId, visibility) {
+  const isPublic = visibility === 'public';
+  await db.from('items').update({ share_override: visibility, is_public: isPublic }).eq('id', itemId);
+  // Update local state
+  const item = allItems.find(i => i.id === itemId);
+  if (item) { item.share_override = visibility; item.is_public = isPublic; }
+  renderShareVisibilityBtns(visibility, { id: itemId });
+  updateShareLink(visibility, { id: itemId, title: item?.title });
+}
+
+function updateShareLink(visibility, item) {
+  const linkSection = document.getElementById('share-link-section');
+  const privateNote = document.getElementById('share-private-note');
+  const linkInput = document.getElementById('share-link-input');
+
+  if (visibility === 'private') {
+    linkSection.style.display = 'none';
+    privateNote.style.display = 'block';
+  } else {
+    const username = currentProfile?.username || 'me';
+    const url = `https://heardtale.com/tale/${username}/${item.id}`;
+    linkInput.value = url;
+    linkSection.style.display = 'block';
+    privateNote.style.display = 'none';
+  }
+}
+
+function copyShareLink() {
+  const input = document.getElementById('share-link-input');
+  navigator.clipboard.writeText(input.value).then(() => showToast('Link copied! 📋'));
+}
+
+async function nativeShare() {
+  const item = allItems.find(i => i.id === sharingItemId);
+  const username = currentProfile?.username || 'me';
+  const url = `https://heardtale.com/tale/${username}/${sharingItemId}`;
+  try {
+    await navigator.share({
+      title: item?.title || 'A Tale on HeardTale',
+      text: `Check out "${item?.title}" on HeardTale — every recommendation has a story.`,
+      url
+    });
+  } catch(e) { /* user cancelled */ }
+}
+
+function closeShareModal() {
+  document.getElementById('share-modal').style.display = 'none';
+  sharingItemId = null;
 }
 
 function formatDate(dateStr) {
@@ -1838,6 +2054,7 @@ function showRecommenderItems(name) {
 function renderSettings() {
   const currentTheme = localStorage.getItem('theme') || 'dark';
   const currentCountry = localStorage.getItem('streamingCountry') || 'US';
+  const privacy = currentProfile?.privacy || 'private';
   const countries = [
     ['US','🇺🇸 United States'],['GB','🇬🇧 United Kingdom'],['CA','🇨🇦 Canada'],
     ['AU','🇦🇺 Australia'],['DE','🇩🇪 Germany'],['FR','🇫🇷 France'],
@@ -1848,6 +2065,36 @@ function renderSettings() {
   ];
   document.getElementById('main-content').innerHTML = `
     <div class="page-header"><h1 class="page-title">Settings</h1></div>
+
+    <div class="settings-section">
+      <h3>Your Profile</h3>
+      ${currentProfile ? `
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem">
+          <div class="rec-avatar" style="width:44px;height:44px;font-size:16px;flex-shrink:0">${currentProfile.username.substring(0,2).toUpperCase()}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:15px;font-weight:500">@${currentProfile.username}</div>
+            <div style="font-size:12px;color:var(--text3)">heardtale.com/tale/${currentProfile.username}/…</div>
+          </div>
+          <button class="btn-sm" onclick="openChangeUsernameModal()">Edit</button>
+        </div>` :
+        `<p style="font-size:13px;color:var(--text2);margin-bottom:1rem">You haven't set a username yet.</p>
+        <button class="btn-sm btn-accent" onclick="showUsernameModal()">Set Username</button>`
+      }
+      <div style="margin-top:1rem">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Default Tale Visibility</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${[['private','🔒 Private','Only you'],['friends','👥 Friends','Mutual follows'],['public','🌐 Public','Anyone']].map(([val,label,desc]) =>
+            `<button class="btn-sm ${privacy === val ? 'btn-accent' : ''}"
+              onclick="updatePrivacy('${val}')"
+              style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 14px">
+              <span>${label}</span>
+              <span style="font-size:10px;opacity:0.7">${desc}</span>
+            </button>`).join('')}
+        </div>
+        <p style="font-size:11px;color:var(--text3);margin-top:8px">This is the default for new Tales. You can override per item when sharing.</p>
+      </div>
+    </div>
+
     <div class="settings-section">
       <h3>Appearance</h3>
       <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Choose your preferred theme.</p>
@@ -1911,6 +2158,40 @@ function renderSettings() {
     btn.style.display = 'none';
     note.style.display = 'block';
   }
+}
+
+async function updatePrivacy(privacy) {
+  if (!currentProfile) { showToast('Set a username first'); return; }
+  const { error } = await db.from('profiles').update({ privacy }).eq('id', currentUser.id);
+  if (!error) { currentProfile.privacy = privacy; renderSettings(); showToast('Privacy updated'); }
+}
+
+function openChangeUsernameModal() {
+  document.getElementById('username-input').value = currentProfile?.username || '';
+  document.getElementById('username-error').textContent = '';
+  document.getElementById('username-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('username-input').focus(), 100);
+}
+
+async function saveUsername() {
+  const username = document.getElementById('username-input').value.trim().toLowerCase();
+  const el = document.getElementById('username-error');
+  el.textContent = '';
+  if (!/^[a-z0-9_]{3,20}$/.test(username)) { el.textContent = 'Username must be 3-20 characters, letters/numbers/underscores only.'; return; }
+  const { data: existing } = await db.from('profiles').select('id').eq('username', username).maybeSingle();
+  if (existing && existing.id !== currentUser.id) { el.textContent = 'That username is taken — try another.'; return; }
+
+  if (currentProfile) {
+    // Update existing profile
+    const { error } = await db.from('profiles').update({ username }).eq('id', currentUser.id);
+    if (error) { el.textContent = error.message; return; }
+    currentProfile.username = username;
+  } else {
+    await createProfile(username);
+  }
+  document.getElementById('username-modal').style.display = 'none';
+  showToast('Username saved! 📖');
+  if (currentView === 'settings') renderSettings();
 }
 
 function triggerInstallPrompt() {
@@ -2022,8 +2303,101 @@ function initTheme() {
 }
 
 // ─── START ────────────────────────────────────────────────────────────────────
+// ─── PUBLIC TALE ROUTER ───────────────────────────────────────────────────────
+// Handles heardtale.com/tale/[username]/[itemId] shared links
+async function checkPublicRoute() {
+  const path = window.location.pathname;
+  const match = path.match(/^\/tale\/([^/]+)\/([^/]+)\/?$/);
+  if (!match) return false;
+
+  const [, username, itemId] = match;
+
+  // Show a loading public page immediately
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  document.body.innerHTML = `
+    <div id="public-page" style="min-height:100vh;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;padding:0">
+      <div style="background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5rem;height:56px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--accent)">HeardTale</span>
+        <a href="https://heardtale.com" style="color:var(--accent);font-size:13px;text-decoration:none">Sign up free →</a>
+      </div>
+      <div style="max-width:600px;margin:0 auto;padding:2rem 1.5rem" id="public-content">
+        <div style="color:var(--text3);font-size:13px">Loading Tale…</div>
+      </div>
+    </div>`;
+
+  try {
+    // Fetch the item (RLS will allow public items)
+    const { data: item, error } = await db.from('items')
+      .select('*, item_tags(tag_id, tags(name))')
+      .eq('id', itemId)
+      .maybeSingle();
+
+    if (error || !item) {
+      document.getElementById('public-content').innerHTML = `
+        <div style="text-align:center;padding:4rem 2rem">
+          <div style="font-size:3rem;margin-bottom:1rem">🔒</div>
+          <h2 style="font-family:'Playfair Display',serif;margin-bottom:0.5rem">Tale not found</h2>
+          <p style="color:var(--text2);margin-bottom:2rem">This Tale is private or doesn't exist.</p>
+          <a href="https://heardtale.com" style="background:var(--accent);color:#1a1508;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:500">Start your own HeardTale</a>
+        </div>`;
+      return true;
+    }
+
+    // Fetch the profile
+    const { data: profile } = await db.from('profiles').select('username,display_name').eq('username', username).maybeSingle();
+
+    // Fetch category info
+    const { data: cat } = await db.from('categories').select('name,icon,status_verb,image_source').eq('id', item.category_id).maybeSingle();
+
+    const tags = (item.item_tags || []).map(it => it.tags?.name).filter(Boolean);
+    const statusClass = { 'Backlog':'s-backlog','In Progress':'s-inprogress','Completed':'s-completed','Abandoned':'s-abandoned' }[item.status] || 's-backlog';
+
+    document.getElementById('public-content').innerHTML = `
+      ${item.image_url ? `<img src="${item.image_url}" style="width:100%;max-height:360px;object-fit:cover;border-radius:12px;margin-bottom:1.5rem;display:block" onerror="this.style.display='none'">` : ''}
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.75rem;flex-wrap:wrap">
+        <span style="font-size:13px;color:var(--text2)">${cat?.icon||''} ${cat?.name||''}</span>
+        <span class="status-badge ${statusClass}">${item.status}</span>
+        ${item.rating ? `<span style="color:var(--accent);font-size:13px">★ ${item.rating}/10</span>` : ''}
+      </div>
+      <h1 style="font-family:'Playfair Display',serif;font-size:2rem;margin-bottom:1rem;line-height:1.2">${item.title}</h1>
+      ${item.source ? `<p style="font-size:14px;color:var(--text2);margin-bottom:1rem">📖 Tale shared by <strong>@${username}</strong>, heard from <strong>${item.source}</strong></p>` : `<p style="font-size:14px;color:var(--text2);margin-bottom:1rem">📖 A Tale from <strong>@${username}</strong></p>`}
+      ${tags.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1.25rem">${tags.map(t=>`<span class="tag-pill">${t}</span>`).join('')}</div>` : ''}
+      ${item.notes ? `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem"><p style="font-size:14px;line-height:1.7;color:var(--text)">${item.notes.replace(/\n/g,'<br>')}</p></div>` : ''}
+      <div style="background:linear-gradient(135deg,rgba(232,197,122,0.12),rgba(155,126,224,0.08));border:1px solid rgba(232,197,122,0.3);border-radius:12px;padding:1.5rem;text-align:center;margin-top:2rem">
+        <div style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--accent);margin-bottom:0.5rem">Every recommendation has a story.</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:1.25rem">Track your own Tales — shows, books, games, restaurants, and more.</p>
+        <a href="https://heardtale.com" style="background:var(--accent);color:#1a1508;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:500;font-size:14px">Start your HeardTale — it's free</a>
+      </div>`;
+
+    // Update page title and OG tags for social sharing
+    document.title = `${item.title} — HeardTale`;
+    const ogMeta = [
+      ['og:title', `${item.title} — HeardTale`],
+      ['og:description', item.notes ? item.notes.substring(0,150) : `A Tale from @${username}. Every recommendation has a story.`],
+      ['og:image', item.image_url || 'https://heardtale.com/icons/icon-512.png'],
+      ['og:url', window.location.href],
+      ['twitter:card', 'summary_large_image'],
+    ];
+    ogMeta.forEach(([prop, content]) => {
+      let el = document.querySelector(`meta[property="${prop}"]`) || document.querySelector(`meta[name="${prop}"]`);
+      if (!el) { el = document.createElement('meta'); el.setAttribute(prop.startsWith('twitter') ? 'name' : 'property', prop); document.head.appendChild(el); }
+      el.setAttribute('content', content);
+    });
+
+  } catch(e) {
+    document.getElementById('public-content').innerHTML = '<p style="color:var(--text3)">Something went wrong loading this Tale.</p>';
+  }
+
+  return true;
+}
+
 initTheme();
-init();
+
+// Check if this is a public shared tale URL first
+checkPublicRoute().then(isPublic => {
+  if (!isPublic) init();
+});
 
 // ─── SERVICE WORKER ───────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
