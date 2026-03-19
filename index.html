@@ -678,7 +678,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.0.2'; // Update this with each deployment
+const APP_VERSION = '2.0.3'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1758,6 +1758,47 @@ function closeShareModal() {
   sharingItemId = null;
 }
 
+async function addSharedItemToLibrary(title, categoryId, sharedByUsername, imageUrl, tagsStr) {
+  if (!currentUser) { showToast('Sign in to add Tales!'); return; }
+
+  const { data, error } = await db.from('items').insert({
+    user_id: currentUser.id,
+    title,
+    category_id: categoryId,
+    source: `@${sharedByUsername}`,
+    image_url: imageUrl || null,
+    status: 'Backlog',
+    priority: 2,
+    is_public: false
+  }).select().single();
+
+  if (error) { showToast('Error adding Tale: ' + error.message); return; }
+
+  // Add tags if any
+  if (tagsStr && data) {
+    const tagNames = tagsStr.split(',').filter(Boolean);
+    for (const tagName of tagNames) {
+      let { data: tag } = await db.from('tags').select().eq('user_id', currentUser.id).eq('name', tagName).maybeSingle();
+      if (!tag) {
+        const { data: newTag } = await db.from('tags').insert({ user_id: currentUser.id, name: tagName }).select().single();
+        tag = newTag;
+      }
+      if (tag) await db.from('item_tags').insert({ item_id: data.id, tag_id: tag.id });
+    }
+  }
+
+  showToast(`"${title}" added to your Tales! 📖`);
+
+  // Close public page and return to app
+  const publicPage = document.getElementById('public-page');
+  if (publicPage) publicPage.remove();
+  document.getElementById('app').style.display = 'flex';
+
+  await loadItems();
+  renderSidebar();
+  renderDashboard();
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr + 'T00:00:00');
@@ -2496,22 +2537,37 @@ async function checkPublicRoute() {
 
   const [, username, itemId] = match;
 
-  // Show a loading public page immediately
+  // Check if user is already logged in
+  const { data: { session } } = await db.auth.getSession();
+  const loggedInUser = session?.user || null;
+  let loggedInProfile = null;
+  if (loggedInUser) {
+    const { data: p } = await db.from('profiles').select('*').eq('id', loggedInUser.id).maybeSingle();
+    loggedInProfile = p;
+  }
+
+  // Hide app and auth screens but DON'T destroy body — keep modals intact
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'none';
-  document.body.innerHTML = `
-    <div id="public-page" style="min-height:100vh;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;padding:0">
-      <div style="background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5rem;height:56px;display:flex;align-items:center;justify-content:space-between">
-        <span style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--accent)">HeardTale</span>
-        <a href="https://heardtale.com" style="color:var(--accent);font-size:13px;text-decoration:none">Sign up free →</a>
-      </div>
-      <div style="max-width:600px;margin:0 auto;padding:2rem 1.5rem" id="public-content">
-        <div style="color:var(--text3);font-size:13px">Loading Tale…</div>
-      </div>
+
+  // Create a public page overlay div instead of replacing body
+  const publicPage = document.createElement('div');
+  publicPage.id = 'public-page';
+  publicPage.style.cssText = 'position:fixed;inset:0;background:var(--bg);color:var(--text);font-family:\'DM Sans\',sans-serif;z-index:500;overflow-y:auto;';
+  publicPage.innerHTML = `
+    <div style="background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5rem;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10">
+      <span style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--accent)">HeardTale</span>
+      ${loggedInUser
+        ? `<button onclick="document.getElementById('public-page').remove();document.getElementById('app').style.display='flex';" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 12px;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer">← Back to my Tales</button>`
+        : `<a href="https://heardtale.com" style="color:var(--accent);font-size:13px;text-decoration:none">Sign up free →</a>`
+      }
+    </div>
+    <div style="max-width:600px;margin:0 auto;padding:2rem 1.5rem" id="public-content">
+      <div style="color:var(--text3);font-size:13px">Loading Tale…</div>
     </div>`;
+  document.body.appendChild(publicPage);
 
   try {
-    // Fetch the item (RLS will allow public items)
     const { data: item, error } = await db.from('items')
       .select('*, item_tags(tag_id, tags(name))')
       .eq('id', itemId)
@@ -2528,14 +2584,26 @@ async function checkPublicRoute() {
       return true;
     }
 
-    // Fetch the profile
     const { data: profile } = await db.from('profiles').select('username,display_name').eq('username', username).maybeSingle();
-
-    // Fetch category info
     const { data: cat } = await db.from('categories').select('name,icon,status_verb,image_source').eq('id', item.category_id).maybeSingle();
-
     const tags = (item.item_tags || []).map(it => it.tags?.name).filter(Boolean);
     const statusClass = { 'Backlog':'s-backlog','In Progress':'s-inprogress','Completed':'s-completed','Abandoned':'s-abandoned' }[item.status] || 's-backlog';
+
+    // Build the CTA section based on login state
+    const ctaSection = loggedInUser
+      ? `<div style="background:linear-gradient(135deg,rgba(232,197,122,0.12),rgba(155,126,224,0.08));border:1px solid rgba(232,197,122,0.3);border-radius:12px;padding:1.5rem;text-align:center;margin-top:2rem">
+          <div style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--accent);margin-bottom:0.5rem">Add this to your Tales?</div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:1.25rem">Log it in your HeardTale with <strong>@${username}</strong> pre-filled as your source.</p>
+          <button onclick="addSharedItemToLibrary('${item.title.replace(/'/g,"\\'")}','${item.category_id}','${username}','${item.image_url || ''}','${(item.tags||[]).join(',')}')"
+            style="background:var(--accent);color:#1a1508;padding:12px 28px;border-radius:8px;border:none;font-weight:500;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif">
+            📖 Add to my Tales
+          </button>
+        </div>`
+      : `<div style="background:linear-gradient(135deg,rgba(232,197,122,0.12),rgba(155,126,224,0.08));border:1px solid rgba(232,197,122,0.3);border-radius:12px;padding:1.5rem;text-align:center;margin-top:2rem">
+          <div style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--accent);margin-bottom:0.5rem">Every recommendation has a story.</div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:1.25rem">Track your own Tales — shows, books, games, restaurants, and more.</p>
+          <a href="https://heardtale.com" style="background:var(--accent);color:#1a1508;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:500;font-size:14px">Start your HeardTale — it's free</a>
+        </div>`;
 
     document.getElementById('public-content').innerHTML = `
       ${item.image_url ? `<img src="${item.image_url}" style="width:100%;max-height:360px;object-fit:cover;border-radius:12px;margin-bottom:1.5rem;display:block" onerror="this.style.display='none'">` : ''}
@@ -2548,13 +2616,8 @@ async function checkPublicRoute() {
       ${item.source ? `<p style="font-size:14px;color:var(--text2);margin-bottom:1rem">📖 Tale shared by <strong>@${username}</strong>, heard from <strong>${item.source}</strong></p>` : `<p style="font-size:14px;color:var(--text2);margin-bottom:1rem">📖 A Tale from <strong>@${username}</strong></p>`}
       ${tags.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1.25rem">${tags.map(t=>`<span class="tag-pill">${t}</span>`).join('')}</div>` : ''}
       ${item.notes ? `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem"><p style="font-size:14px;line-height:1.7;color:var(--text)">${item.notes.replace(/\n/g,'<br>')}</p></div>` : ''}
-      <div style="background:linear-gradient(135deg,rgba(232,197,122,0.12),rgba(155,126,224,0.08));border:1px solid rgba(232,197,122,0.3);border-radius:12px;padding:1.5rem;text-align:center;margin-top:2rem">
-        <div style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--accent);margin-bottom:0.5rem">Every recommendation has a story.</div>
-        <p style="font-size:13px;color:var(--text2);margin-bottom:1.25rem">Track your own Tales — shows, books, games, restaurants, and more.</p>
-        <a href="https://heardtale.com" style="background:var(--accent);color:#1a1508;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:500;font-size:14px">Start your HeardTale — it's free</a>
-      </div>`;
+      ${ctaSection}`;
 
-    // Update page title and OG tags for social sharing
     document.title = `${item.title} — HeardTale`;
     const ogMeta = [
       ['og:title', `${item.title} — HeardTale`],
