@@ -102,15 +102,19 @@
   <a href="javascript:history.back()" class="back-link">← Go back</a>
 </div>
 <script>
-  // GitHub Pages SPA routing — redirect to app with path preserved
+  // Only redirect known app routes to the SPA
+  // Everything else stays on the 404 page
   const path = window.location.pathname;
-  const search = window.location.search;
-  const hash = window.location.hash;
-  // Only redirect for app routes, not true 404s
-  if (path !== '/404.html' && path !== '/404') {
-    sessionStorage.setItem('ht_redirect', path + search + hash);
+  const isAppRoute =
+    path === '/admin' ||
+    path === '/admin/' ||
+    /^\/tale\/[^/]+\/[^/]+\/?$/.test(path);
+
+  if (isAppRoute) {
+    sessionStorage.setItem('ht_redirect', path + window.location.search + window.location.hash);
     window.location.replace('/');
   }
+  // All other paths stay here and show the 404 page
 </script>
 </body>
 </html>
