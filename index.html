@@ -419,6 +419,9 @@
         <div class="nav-item" id="nav-settings" onclick="showView('settings')">
           <span class="cat-icon">⚙</span> Settings
         </div>
+        <div class="nav-item" id="nav-admin" onclick="showView('admin')" style="display:none">
+          <span class="cat-icon">🛡</span> Admin
+        </div>
       </div>
       <div class="nav-divider"></div>
       <div class="sidebar-label">Categories</div>
@@ -675,7 +678,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.0.1'; // Update this with each deployment
+const APP_VERSION = '2.0.2'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -806,6 +809,12 @@ async function showApp() {
   await loadCategories();
   await loadItems();
   renderSidebar();
+
+  // Show admin nav if user is admin
+  if (currentProfile?.is_admin) {
+    document.getElementById('nav-admin').style.display = 'flex';
+  }
+
   showView('dashboard');
 
   // Check if profile exists, if not prompt for username
@@ -940,6 +949,10 @@ function showView(view) {
   if (view === 'dashboard') renderDashboard();
   else if (view === 'stats') renderStats();
   else if (view === 'settings') renderSettings();
+  else if (view === 'admin') {
+    if (!currentProfile?.is_admin) { showView('dashboard'); return; }
+    renderAdminDashboard();
+  }
 }
 
 function showCategoryView(catId) {
@@ -1645,6 +1658,20 @@ async function openShareModal(itemId) {
   const cat = categories.find(c => c.id === item?.category_id);
   if (!item) return;
 
+  if (!currentProfile?.username) {
+    showToast('Set a username in Settings to share Tales!');
+    showView('settings');
+    return;
+  }
+
+  // Auto-make item accessible via link when share modal is opened
+  // is_public = true means the specific link always works
+  // share_override controls whether it appears on public profile
+  if (!item.is_public) {
+    await db.from('items').update({ is_public: true }).eq('id', itemId);
+    item.is_public = true;
+  }
+
   // Preview
   const preview = document.getElementById('share-item-preview');
   preview.innerHTML = `
@@ -1655,10 +1682,10 @@ async function openShareModal(itemId) {
       ${item.source ? `<div style="font-size:11px;color:var(--text3)">Tale from ${item.source}</div>` : ''}
     </div>`;
 
-  // Current visibility
-  const vis = item.share_override || (currentProfile?.privacy || 'private');
+  // Profile visibility controls whether item appears on public profile
+  const vis = item.share_override || 'link-only';
   renderShareVisibilityBtns(vis, item);
-  updateShareLink(vis, item);
+  updateShareLink(item);
 
   // Native share button
   const nativeBtn = document.getElementById('share-native-btn');
@@ -1671,44 +1698,41 @@ async function openShareModal(itemId) {
 function renderShareVisibilityBtns(currentVis, item) {
   const btns = document.getElementById('share-visibility-btns');
   const options = [
-    { value: 'private', label: '🔒 Private', desc: 'Only you' },
-    { value: 'friends', label: '👥 Friends', desc: 'Mutual follows' },
-    { value: 'public', label: '🌐 Public', desc: 'Anyone with link' },
+    { value: 'link-only', label: '🔗 Link only', desc: 'Not on your profile' },
+    { value: 'friends', label: '👥 Friends', desc: 'Shown to mutual follows' },
+    { value: 'public', label: '🌐 Profile public', desc: 'Shown on your profile' },
   ];
-  btns.innerHTML = options.map(o => `
+  btns.innerHTML = `
+    <p style="font-size:12px;color:var(--text3);margin-bottom:8px;width:100%">Anyone with the link can view this Tale. Choose how it appears on your profile:</p>
+    ${options.map(o => `
     <button class="btn-sm ${currentVis === o.value ? 'btn-accent' : ''}"
       onclick="setItemVisibility('${item.id}','${o.value}')"
-      style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 14px">
+      style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 12px">
       <span>${o.label}</span>
       <span style="font-size:10px;opacity:0.7">${o.desc}</span>
-    </button>`).join('');
+    </button>`).join('')}`;
 }
 
 async function setItemVisibility(itemId, visibility) {
-  const isPublic = visibility === 'public';
-  await db.from('items').update({ share_override: visibility, is_public: isPublic }).eq('id', itemId);
-  // Update local state
+  // is_public always stays true once a link is generated
+  // share_override controls profile visibility
+  const override = visibility === 'link-only' ? null : visibility;
+  await db.from('items').update({ share_override: override, is_public: true }).eq('id', itemId);
   const item = allItems.find(i => i.id === itemId);
-  if (item) { item.share_override = visibility; item.is_public = isPublic; }
+  if (item) { item.share_override = override; item.is_public = true; }
   renderShareVisibilityBtns(visibility, { id: itemId });
-  updateShareLink(visibility, { id: itemId, title: item?.title });
+  showToast(visibility === 'link-only' ? 'Link-only access set' : `Profile visibility updated`);
 }
 
-function updateShareLink(visibility, item) {
+function updateShareLink(item) {
+  const linkInput = document.getElementById('share-link-input');
   const linkSection = document.getElementById('share-link-section');
   const privateNote = document.getElementById('share-private-note');
-  const linkInput = document.getElementById('share-link-input');
-
-  if (visibility === 'private') {
-    linkSection.style.display = 'none';
-    privateNote.style.display = 'block';
-  } else {
-    const username = currentProfile?.username || 'me';
-    const url = `https://heardtale.com/tale/${username}/${item.id}`;
-    linkInput.value = url;
-    linkSection.style.display = 'block';
-    privateNote.style.display = 'none';
-  }
+  const username = currentProfile?.username || 'me';
+  const url = `https://heardtale.com/tale/${username}/${item.id}`;
+  linkInput.value = url;
+  linkSection.style.display = 'block';
+  privateNote.style.display = 'none';
 }
 
 function copyShareLink() {
@@ -2303,10 +2327,170 @@ function initTheme() {
 }
 
 // ─── START ────────────────────────────────────────────────────────────────────
+// ─── ADMIN DASHBOARD ─────────────────────────────────────────────────────────
+async function renderAdminDashboard() {
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header">
+      <h1 class="page-title">🛡 Admin</h1>
+    </div>
+    <div class="dash-grid" id="admin-stats-grid">
+      <div class="stat-card"><div class="stat-label">Loading…</div><div class="stat-value">—</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+      <div class="chart-card">
+        <div class="section-title">Recent Signups</div>
+        <div id="admin-recent-users" class="wtw-loading">Loading…</div>
+      </div>
+      <div class="chart-card">
+        <div class="section-title">Most Active Users</div>
+        <div id="admin-active-users" class="wtw-loading">Loading…</div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="section-title">User Lookup</div>
+      <div style="display:flex;gap:8px;margin-bottom:1rem">
+        <input type="text" id="admin-search-input" placeholder="Search by username or email…" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none" onkeydown="if(event.key==='Enter')adminSearch()">
+        <button class="btn-sm btn-accent" onclick="adminSearch()">Search</button>
+      </div>
+      <div id="admin-search-results"></div>
+    </div>
+    <div class="chart-card">
+      <div class="section-title">All Users</div>
+      <div id="admin-all-users" class="wtw-loading">Loading…</div>
+    </div>`;
+
+  // Load stats
+  try {
+    const [profilesRes, itemsRes] = await Promise.all([
+      db.from('profiles').select('id, username, is_pro, is_admin, created_at', { count: 'exact' }),
+      db.from('items').select('id', { count: 'exact' })
+    ]);
+
+    const totalUsers = profilesRes.count || 0;
+    const totalItems = itemsRes.count || 0;
+    const proUsers = (profilesRes.data || []).filter(p => p.is_pro).length;
+    const today = new Date().toISOString().split('T')[0];
+    const newToday = (profilesRes.data || []).filter(p => p.created_at?.startsWith(today)).length;
+
+    document.getElementById('admin-stats-grid').innerHTML = `
+      <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value">${totalUsers}</div></div>
+      <div class="stat-card"><div class="stat-label">Pro Users</div><div class="stat-value" style="color:var(--accent)">${proUsers}</div></div>
+      <div class="stat-card"><div class="stat-label">Total Items</div><div class="stat-value">${totalItems}</div></div>
+      <div class="stat-card"><div class="stat-label">New Today</div><div class="stat-value" style="color:var(--green)">${newToday}</div></div>`;
+
+    // Recent signups
+    const recent = [...(profilesRes.data || [])].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0,8);
+    document.getElementById('admin-recent-users').innerHTML = recent.length
+      ? recent.map(u => renderAdminUserRow(u)).join('')
+      : '<p style="color:var(--text3);font-size:13px">No users yet</p>';
+
+    // Most active (by item count)
+    const { data: itemCounts } = await db.from('items').select('user_id').limit(1000);
+    const countMap = {};
+    (itemCounts || []).forEach(i => { countMap[i.user_id] = (countMap[i.user_id] || 0) + 1; });
+    const activeProfiles = (profilesRes.data || [])
+      .map(p => ({ ...p, itemCount: countMap[p.id] || 0 }))
+      .sort((a,b) => b.itemCount - a.itemCount).slice(0, 8);
+    document.getElementById('admin-active-users').innerHTML = activeProfiles.length
+      ? activeProfiles.map(u => renderAdminUserRow(u, u.itemCount + ' items')).join('')
+      : '<p style="color:var(--text3);font-size:13px">No activity yet</p>';
+
+    // All users
+    const allProfiles = [...(profilesRes.data || [])].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    document.getElementById('admin-all-users').innerHTML = allProfiles.length
+      ? allProfiles.map(u => renderAdminUserRow(u)).join('')
+      : '<p style="color:var(--text3);font-size:13px">No users yet</p>';
+
+  } catch(e) {
+    document.getElementById('admin-stats-grid').innerHTML = `<div class="stat-card"><div class="stat-label">Error</div><div class="stat-value" style="color:var(--red)">!</div></div>`;
+  }
+}
+
+function renderAdminUserRow(user, extra) {
+  const joined = user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—';
+  return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+    <div class="rec-avatar" style="flex-shrink:0">${(user.username||'?').substring(0,2).toUpperCase()}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:500">@${user.username || '(no username)'}</div>
+      <div style="font-size:11px;color:var(--text3)">${extra || 'Joined ' + joined}</div>
+    </div>
+    <div style="display:flex;gap:4px;align-items:center">
+      ${user.is_admin ? '<span style="font-size:10px;padding:2px 6px;background:rgba(224,107,107,0.15);color:var(--red);border-radius:6px">admin</span>' : ''}
+      ${user.is_pro ? '<span style="font-size:10px;padding:2px 6px;background:var(--accent-bg);color:var(--accent);border-radius:6px">pro</span>' : ''}
+      <button class="btn-sm" onclick="adminTogglePro('${user.id}','${user.username}',${!!user.is_pro})" style="font-size:11px;padding:4px 8px">${user.is_pro ? 'Revoke Pro' : 'Grant Pro'}</button>
+    </div>
+  </div>`;
+}
+
+async function adminSearch() {
+  const q = document.getElementById('admin-search-input').value.trim().toLowerCase();
+  const resultsEl = document.getElementById('admin-search-results');
+  if (!q) { resultsEl.innerHTML = ''; return; }
+  resultsEl.innerHTML = '<div class="wtw-loading">Searching…</div>';
+
+  const { data } = await db.from('profiles').select('*').ilike('username', `%${q}%`).limit(10);
+  resultsEl.innerHTML = (data || []).length
+    ? (data || []).map(u => renderAdminUserRow(u)).join('')
+    : '<p style="color:var(--text3);font-size:13px">No users found</p>';
+}
+
+async function adminTogglePro(userId, username, currentlyPro) {
+  const newPro = !currentlyPro;
+  const { error } = await db.from('profiles').update({
+    is_pro: newPro,
+    pro_granted_at: newPro ? new Date().toISOString() : null
+  }).eq('id', userId);
+  if (error) { showToast('Error: ' + error.message); return; }
+  showToast(`@${username} ${newPro ? 'granted' : 'revoked'} Pro ✓`);
+  renderAdminDashboard();
+}
+
+// ─── ADMIN ROUTE (/admin) ─────────────────────────────────────────────────────
+async function checkAdminRoute() {
+  // Must be logged in and admin to access /admin
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) {
+    window.history.replaceState(null, '', '/');
+    return false;
+  }
+
+  const { data: profile } = await db.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+  if (!profile?.is_admin) {
+    window.history.replaceState(null, '', '/');
+    return false;
+  }
+
+  // Admin is authenticated — load full app in admin view
+  currentUser = session.user;
+  currentProfile = profile;
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  await loadCategories();
+  await loadItems();
+  renderSidebar();
+  document.getElementById('nav-admin').style.display = 'flex';
+  showView('admin');
+  window.history.replaceState(null, '', '/admin');
+  return true;
+}
+
 // ─── PUBLIC TALE ROUTER ───────────────────────────────────────────────────────
 // Handles heardtale.com/tale/[username]/[itemId] shared links
 async function checkPublicRoute() {
+  // Handle redirect from 404.html (GitHub Pages SPA routing)
+  const redirect = sessionStorage.getItem('ht_redirect');
+  if (redirect) {
+    sessionStorage.removeItem('ht_redirect');
+    window.history.replaceState(null, '', redirect);
+  }
+
   const path = window.location.pathname;
+
+  // Check for admin route
+  if (path === '/admin' || path === '/admin/') {
+    return await checkAdminRoute();
+  }
+
   const match = path.match(/^\/tale\/([^/]+)\/([^/]+)\/?$/);
   if (!match) return false;
 

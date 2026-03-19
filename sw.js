@@ -2,7 +2,7 @@
 // Version is injected from APP_VERSION in index.html via cache name
 // Changing CACHE_VERSION busts the cache and triggers an update for all users
 
-const CACHE_VERSION = 'heardtale-2.0.1';
+const CACHE_VERSION = 'heardtale-2.0.2';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
