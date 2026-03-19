@@ -26,7 +26,7 @@
   .bg {
     position: fixed;
     inset: 0;
-    background-image: url('404_bg.png');
+    background-image: url('/404_bg.png');
     background-size: cover;
     background-position: center top;
     z-index: 0;
@@ -42,7 +42,6 @@
     font-size: 1.3rem;
     color: #e8c57a;
     margin-bottom: 3rem;
-    letter-spacing: 0.5px;
   }
   .headline {
     font-family: 'Playfair Display', serif;
@@ -69,25 +68,34 @@
     text-decoration: none;
     font-weight: 500;
     font-size: 14px;
-    transition: background 0.2s;
-    margin-bottom: 1rem;
   }
-  .btn-home:hover { background: #c9a84c; }
   .back-link {
     display: block;
     font-size: 13px;
     color: rgba(240,237,232,0.5);
     text-decoration: none;
     margin-top: 0.75rem;
-    transition: color 0.2s;
   }
-  .back-link:hover { color: rgba(240,237,232,0.8); }
   .error-code {
     font-size: 10px;
     color: rgba(240,237,232,0.25);
     text-transform: uppercase;
     letter-spacing: 2px;
     margin-bottom: 1.5rem;
+  }
+  .debug {
+    position: fixed;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    z-index: 10;
+    white-space: nowrap;
   }
 </style>
 </head>
@@ -101,20 +109,20 @@
   <a href="/" class="btn-home">Return to HeardTale</a>
   <a href="javascript:history.back()" class="back-link">← Go back</a>
 </div>
+<div class="debug" id="debug-bar">path: loading…</div>
 <script>
-  // Only redirect known app routes to the SPA
-  // Everything else stays on the 404 page
   const path = window.location.pathname;
+  document.getElementById('debug-bar').textContent = 'path: ' + path;
+
   const isAppRoute =
     path === '/admin' ||
     path === '/admin/' ||
-    /^\/tale\/[^/]+\/[^/]+\/?$/.test(path);
+    /^\/tale\/[^\/]+\/[^\/]+\/?$/.test(path);
 
   if (isAppRoute) {
     sessionStorage.setItem('ht_redirect', path + window.location.search + window.location.hash);
     window.location.replace('/');
   }
-  // All other paths stay here and show the 404 page
 </script>
 </body>
 </html>
