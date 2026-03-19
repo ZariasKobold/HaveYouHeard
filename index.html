@@ -506,7 +506,7 @@
       <div class="form-field">
         <label>Tags — press Enter to add</label>
         <div class="tags-input-row" id="tags-input-row" onclick="document.getElementById('tag-input').focus()">
-          <input type="text" id="tag-input" placeholder="Add tag…" onkeydown="handleTagInput(event)">
+          <input type="text" id="tag-input" placeholder="Add tag…" enterkeyhint="done" onkeydown="handleTagInput(event)" onkeyup="handleTagInputUp(event)">
         </div>
       </div>
       <div class="form-field">
@@ -597,7 +597,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '1.5.0'; // Update this with each deployment
+const APP_VERSION = '1.6.0'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -744,7 +744,10 @@ function renderSidebar() {
 
   ['modal-category', 'qa-category'].forEach(id => {
     const sel = document.getElementById(id);
-    if (sel) sel.innerHTML = categories.map(c => `<option value="${c.id}">${c.icon || ''} ${c.name}</option>`).join('');
+    if (!sel) return;
+    const current = sel.value; // preserve current selection
+    sel.innerHTML = categories.map(c => `<option value="${c.id}">${c.icon || ''} ${c.name}</option>`).join('');
+    if (current && sel.querySelector(`option[value="${current}"]`)) sel.value = current;
   });
 }
 
@@ -980,7 +983,7 @@ function openItemModal(catId, itemId) {
   // Reset
   document.getElementById('modal-rating').value = '0';
   renderStars(0);
-  document.getElementById('tags-input-row').innerHTML = '<input type="text" id="tag-input" placeholder="Add tag…" onkeydown="handleTagInput(event)">';
+  document.getElementById('tags-input-row').innerHTML = '<input type="text" id="tag-input" placeholder="Add tag…" enterkeyhint="done" onkeydown="handleTagInput(event)" onkeyup="handleTagInputUp(event)">';
   document.getElementById('modal-image-url').value = '';
   document.getElementById('modal-img-preview').innerHTML = '<span id="modal-img-placeholder">📁</span>';
   document.getElementById('img-fetch-status').textContent = '';
@@ -1063,27 +1066,15 @@ async function fetchImageForModal() {
   btn.disabled = true;
   document.getElementById('img-picker-container').style.display = 'none';
 
-  // Each source maps to exactly one API — no cross-contamination
-  const SOURCE_FETCHERS = {
-    tmdb:        () => fetchTMDBMulti(title),
-    openlibrary: () => fetchOpenLibraryMulti(title),
-    rawg:        () => fetchRAWGMulti(title),
-    bgg:         () => fetchBGGMulti(title),
-    places:      () => fetchTMDBMulti(title), // fallback for places
-    ai:          () => fetchTMDBMulti(title), // fallback for custom cats
-  };
+  // Each source maps to a combined fetcher that queries 2-3 category-appropriate APIs
+  const fetcher = IMAGE_FETCHERS[source] || IMAGE_FETCHERS.ai;
 
   try {
-    const fetcher = SOURCE_FETCHERS[source] || SOURCE_FETCHERS.ai;
-    let urls = await fetcher();
+    let urls = await fetcher(title);
 
-    // If primary source returns nothing, only try a second source
-    // that makes sense for that category — never mix unrelated APIs
-    if (!urls.length) {
-      if (source === 'tmdb') urls = await fetchTMDBMulti(title + ' film');
-      else if (source === 'rawg') urls = await fetchRAWGMulti(title.split(':')[0]);
-      else if (source === 'bgg') urls = await fetchBGGMulti(title.split(':')[0]);
-      else if (source === 'openlibrary') urls = await fetchOpenLibraryMulti(title.split(':')[0]);
+    // If still nothing, try a simplified title (strip subtitle after colon)
+    if (!urls.length && title.includes(':')) {
+      urls = await fetcher(title.split(':')[0].trim());
     }
 
     urls = urls.filter(Boolean).slice(0, 5);
@@ -1124,14 +1115,9 @@ function selectPickerImage(url, el) {
   previewImage(url);
 }
 
-async function fetchOpenLibraryMulti(title) {
-  try {
-    const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=5`);
-    const d = await r.json();
-    return (d.docs || []).map(doc => doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : null).filter(Boolean);
-  } catch { return []; }
-}
+// ─── IMAGE FETCH APIs ────────────────────────────────────────────────────────
 
+// Shows & Movies: TMDB + iTunes
 async function fetchTMDBMulti(title) {
   try {
     const key = '4a3b711b67bee2e30843ca96d68a09c1';
@@ -1141,6 +1127,51 @@ async function fetchTMDBMulti(title) {
   } catch { return []; }
 }
 
+async function fetchITunesMovieMulti(title) {
+  try {
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=movie&limit=5`);
+    const d = await r.json();
+    return (d.results || []).map(item => item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
+  } catch { return []; }
+}
+
+async function fetchITunesTVMulti(title) {
+  try {
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=tvShow&limit=5`);
+    const d = await r.json();
+    return (d.results || []).map(item => item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
+  } catch { return []; }
+}
+
+// Books: Open Library + Google Books + iTunes
+async function fetchOpenLibraryMulti(title) {
+  try {
+    const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=5`);
+    const d = await r.json();
+    return (d.docs || []).map(doc => doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : null).filter(Boolean);
+  } catch { return []; }
+}
+
+async function fetchGoogleBooksMulti(title) {
+  try {
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(title)}&maxResults=5&printType=books`);
+    const d = await r.json();
+    return (d.items || []).map(item => {
+      const img = item.volumeInfo?.imageLinks?.thumbnail || item.volumeInfo?.imageLinks?.smallThumbnail;
+      return img ? img.replace('http:', 'https:').replace('zoom=1', 'zoom=3') : null;
+    }).filter(Boolean);
+  } catch { return []; }
+}
+
+async function fetchITunesBooksMulti(title) {
+  try {
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=ebook&limit=5`);
+    const d = await r.json();
+    return (d.results || []).map(item => item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
+  } catch { return []; }
+}
+
+// Video Games: RAWG + iTunes
 async function fetchRAWGMulti(title) {
   try {
     const key = '5a0a9c4e63b0490da52daf9c99da4e05';
@@ -1150,6 +1181,15 @@ async function fetchRAWGMulti(title) {
   } catch { return []; }
 }
 
+async function fetchITunesGamesMulti(title) {
+  try {
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=software&entity=software&limit=5`);
+    const d = await r.json();
+    return (d.results || []).map(item => item.artworkUrl512 || item.artworkUrl100?.replace('100x100', '512x512')).filter(Boolean);
+  } catch { return []; }
+}
+
+// Board Games: BGG
 async function fetchBGGMulti(title) {
   try {
     const r = await fetch(`https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(title)}&type=boardgame`);
@@ -1162,12 +1202,52 @@ async function fetchBGGMulti(title) {
         const r2 = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${id}`);
         const text2 = await r2.text();
         const xml2 = parser.parseFromString(text2, 'text/xml');
-        return xml2.querySelector('image')?.textContent?.trim() || null;
+        const img = xml2.querySelector('image')?.textContent?.trim();
+        return img ? (img.startsWith('http') ? img : 'https:' + img) : null;
       } catch { return null; }
     }));
     return images.filter(Boolean);
   } catch { return []; }
 }
+
+// Combined fetchers per source type — always 3 sources, same category only
+const IMAGE_FETCHERS = {
+  tmdb: async (title) => {
+    const [tmdb, movies, tv] = await Promise.all([
+      fetchTMDBMulti(title),
+      fetchITunesMovieMulti(title),
+      fetchITunesTVMulti(title)
+    ]);
+    return [...new Set([...tmdb, ...movies, ...tv])].slice(0, 5);
+  },
+  openlibrary: async (title) => {
+    const [ol, gb, ib] = await Promise.all([
+      fetchOpenLibraryMulti(title),
+      fetchGoogleBooksMulti(title),
+      fetchITunesBooksMulti(title)
+    ]);
+    return [...new Set([...ol, ...gb, ...ib])].slice(0, 5);
+  },
+  rawg: async (title) => {
+    const [rawg, ig] = await Promise.all([
+      fetchRAWGMulti(title),
+      fetchITunesGamesMulti(title)
+    ]);
+    return [...new Set([...rawg, ...ig])].slice(0, 5);
+  },
+  bgg: async (title) => {
+    return fetchBGGMulti(title);
+  },
+  places: async (title) => {
+    // For places, search TMDB for documentary/food content as a proxy
+    return fetchTMDBMulti(title);
+  },
+  ai: async (title) => {
+    // For custom categories try TMDB + iTunes as general fallback
+    const [tmdb, movies] = await Promise.all([fetchTMDBMulti(title), fetchITunesMovieMulti(title)]);
+    return [...new Set([...tmdb, ...movies])].slice(0, 5);
+  }
+};
 
 
 // ─── RATINGS & TAGS ───────────────────────────────────────────────────────────
@@ -1185,17 +1265,31 @@ function setRating(r) {
 function handleTagInput(e) {
   if (e.key === 'Enter' || e.key === ',') {
     e.preventDefault();
-    const val = e.target.value.trim().replace(/,/g, '').toLowerCase();
-    if (val && !currentTags.includes(val)) { currentTags.push(val); renderTagPills(); }
-    e.target.value = '';
+    addTagFromInput(e.target);
   }
+}
+
+function handleTagInputUp(e) {
+  // Handle mobile 'Done'/'Go' button which fires as Enter on keyup on some devices
+  if (e.key === 'Enter') {
+    addTagFromInput(e.target);
+  }
+}
+
+function addTagFromInput(input) {
+  const val = input.value.trim().replace(/,/g, '').toLowerCase();
+  if (val && !currentTags.includes(val)) { currentTags.push(val); renderTagPills(); }
+  else input.value = '';
 }
 
 function renderTagPills() {
   const row = document.getElementById('tags-input-row');
   row.innerHTML = currentTags.map((t, i) =>
     `<span class="tag-pill">${t}<span class="tag-pill-x" onclick="removeTag(${i})">✕</span></span>`
-  ).join('') + '<input type="text" id="tag-input" placeholder="Add tag…" onkeydown="handleTagInput(event)">';
+  ).join('') + '<input type="text" id="tag-input" placeholder="Add tag…" enterkeyhint="done" onkeydown="handleTagInput(event)" onkeyup="handleTagInputUp(event)">';
+  // Focus the new input
+  const inp = document.getElementById('tag-input');
+  if (inp) inp.focus();
 }
 
 function removeTag(i) { currentTags.splice(i, 1); renderTagPills(); }
@@ -1252,7 +1346,7 @@ async function saveItem(addAnother = false) {
     currentTags = [];
     document.getElementById('modal-rating').value = '0';
     renderStars(0);
-    document.getElementById('tags-input-row').innerHTML = '<input type="text" id="tag-input" placeholder="Add tag…" onkeydown="handleTagInput(event)">';
+    document.getElementById('tags-input-row').innerHTML = '<input type="text" id="tag-input" placeholder="Add tag…" enterkeyhint="done" onkeydown="handleTagInput(event)" onkeyup="handleTagInputUp(event)">';
     document.getElementById('modal-image-url').value = '';
     document.getElementById('modal-img-preview').innerHTML = '<span id="modal-img-placeholder">📁</span>';
     document.getElementById('img-fetch-status').textContent = '';
