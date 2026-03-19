@@ -234,6 +234,30 @@
   .empty-state h3 { font-size: 1rem; color: var(--text2); margin-bottom: 0.4rem; }
   .empty-state p { font-size: 13px; }
 
+  /* ITEM DETAIL VIEW */
+  .detail-hero { width: 100%; max-height: 340px; object-fit: cover; border-radius: var(--radius); margin-bottom: 1.25rem; display: block; }
+  .detail-hero-placeholder { width: 100%; height: 200px; background: var(--bg3); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; font-size: 4rem; margin-bottom: 1.25rem; }
+  .detail-meta-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
+  .detail-meta-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; }
+  .detail-meta-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .detail-meta-value { font-size: 14px; color: var(--text); font-weight: 500; }
+  .detail-section { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.25rem; margin-bottom: 1rem; }
+  .detail-section-title { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem; font-family: 'DM Sans', sans-serif; }
+
+  /* WHERE TO WATCH */
+  .wtw-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+  .wtw-item { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; text-decoration: none; transition: transform 0.15s; }
+  .wtw-item:hover { transform: translateY(-2px); }
+  .wtw-logo { width: 52px; height: 52px; border-radius: 12px; overflow: hidden; background: var(--bg3); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
+  .wtw-logo img { width: 100%; height: 100%; object-fit: cover; }
+  .wtw-logo-text { font-size: 10px; font-weight: 600; color: var(--text2); text-align: center; padding: 4px; }
+  .wtw-name { font-size: 10px; color: var(--text2); text-align: center; max-width: 60px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wtw-type { font-size: 9px; color: var(--text3); text-align: center; }
+  .wtw-loading { color: var(--text3); font-size: 13px; }
+  .wtw-search-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .wtw-link { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: 20px; font-size: 12px; color: var(--text2); text-decoration: none; transition: all 0.15s; cursor: pointer; }
+  .wtw-link:hover { border-color: var(--accent); color: var(--accent); }
+
   /* TOAST */
   .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 10px 16px; font-size: 13px; color: var(--text); z-index: 9999; animation: slideUp 0.25s ease; pointer-events: none; }
   @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -476,8 +500,7 @@
       </div>
       <div class="form-row">
         <div class="form-field">
-          <label>Heard From</label>
-          <input type="text" id="modal-source" placeholder="Who recommended it?">
+          <label>Heard this Tale from</label>
         </div>
         <div class="form-field">
           <label>Priority</label>
@@ -545,8 +568,7 @@
           <select id="qa-category"></select>
         </div>
         <div class="form-field">
-          <label>Heard From</label>
-          <input type="text" id="qa-source" placeholder="Who told you?" onkeydown="if(event.key==='Enter')saveQuickAdd()">
+          <label>Heard this Tale from</label>
         </div>
       </div>
     </div>
@@ -597,7 +619,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '1.6.0'; // Update this with each deployment
+const APP_VERSION = '2.0.0'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -844,7 +866,7 @@ function renderDashboard() {
       ? dashMode === 'grid'
         ? `<div class="items-grid">${recent.map(renderItemCard).join('')}</div>`
         : `<div class="items-list">${recent.map(renderItemRow).join('')}</div>`
-      : `<div class="empty-state"><div class="empty-icon">📖</div><h3>Nothing here yet</h3><p>Hit Quick Add or tap a category to start logging recommendations.</p></div>`
+      : `<div class="empty-state"><div class="empty-icon">📖</div><h3>No tales yet</h3><p>Hit Quick Add or tap a category to start logging your first tale.</p></div>`
     }`;
 }
 
@@ -890,7 +912,7 @@ function renderCategoryView() {
     </div>
     <div id="items-container">
       ${items.length === 0
-        ? `<div class="empty-state"><div class="empty-icon">${cat.icon || '📁'}</div><h3>Nothing in ${cat.name} yet</h3><p>Add your first recommendation!</p></div>`
+        ? `<div class="empty-state"><div class="empty-icon">${cat.icon || '📁'}</div><h3>Nothing in ${cat.name} yet</h3><p>Add your first tale!</p></div>`
         : currentViewMode === 'grid'
           ? `<div class="items-grid">${items.map(renderItemCard).join('')}</div>`
           : `<div class="items-list">${items.map(renderItemRow).join('')}</div>`
@@ -915,7 +937,7 @@ function renderRandomBanner() {
 function renderItemCard(item) {
   const priorityClass = item.priority === 3 ? 'p-high' : item.priority === 1 ? 'p-low' : 'p-med';
   const cat = categories.find(c => c.id === item.category_id);
-  return `<div class="item-card" onclick="openItemModal(null,'${item.id}')">
+  return `<div class="item-card" onclick="openItemDetail('${item.id}')">
     <div class="item-card-img">
       ${item.image_url
         ? `<img src="${item.image_url}" onerror="this.parentElement.innerHTML='<span style=font-size:2.5rem>${cat?.icon || '📁'}</span>'" loading="lazy">`
@@ -933,7 +955,7 @@ function renderItemCard(item) {
 function renderItemRow(item) {
   const cat = categories.find(c => c.id === item.category_id);
   const statusClass = { 'Backlog': 's-backlog', 'In Progress': 's-inprogress', 'Completed': 's-completed', 'Abandoned': 's-abandoned' }[item.status] || 's-backlog';
-  return `<div class="item-row" onclick="openItemModal(null,'${item.id}')">
+  return `<div class="item-row" onclick="openItemDetail('${item.id}')">
     <div class="item-row-thumb">
       ${item.image_url
         ? `<img src="${item.image_url}" onerror="this.parentElement.textContent='${cat?.icon || '📁'}'" loading="lazy">`
@@ -1414,6 +1436,271 @@ async function saveQuickAdd() {
   else renderDashboard();
 }
 
+// ─── ITEM DETAIL VIEW ────────────────────────────────────────────────────────
+let previousView = null;
+let previousCatId = null;
+
+function openItemDetail(itemId) {
+  const item = allItems.find(i => i.id === itemId);
+  if (!item) return;
+  const cat = categories.find(c => c.id === item.category_id);
+
+  // Remember where we came from so back button works
+  previousView = currentView;
+  previousCatId = currentCatId;
+  currentView = 'detail';
+
+  const statusClass = { 'Backlog': 's-backlog', 'In Progress': 's-inprogress', 'Completed': 's-completed', 'Abandoned': 's-abandoned' }[item.status] || 's-backlog';
+  const priorityLabel = item.priority === 3 ? '🔴 High' : item.priority === 1 ? '⚪ Low' : '🟡 Medium';
+  const stars = item.rating ? '★'.repeat(item.rating) + '☆'.repeat(10 - item.rating) : null;
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header" style="margin-bottom:1rem">
+      <button class="btn-sm" onclick="closeItemDetail()" style="font-size:18px;padding:4px 10px">←</button>
+      <div style="flex:1"></div>
+      <button class="btn-sm btn-accent" onclick="openItemModal(null,'${item.id}')">✏️ Edit</button>
+    </div>
+
+    ${item.image_url
+      ? `<img src="${item.image_url}" class="detail-hero" onerror="this.outerHTML='<div class=detail-hero-placeholder>${cat?.icon || '📖'}</div>'">`
+      : `<div class="detail-hero-placeholder">${cat?.icon || '📖'}</div>`
+    }
+
+    <h1 style="font-size:1.6rem;margin-bottom:0.4rem;font-family:'Playfair Display',serif">${item.title}</h1>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:1.25rem;flex-wrap:wrap">
+      <span style="font-size:13px;color:var(--text2)">${cat?.name || ''}</span>
+      <span class="status-badge ${statusClass}">${item.status}</span>
+      <span style="font-size:12px;color:var(--text3)">${priorityLabel}</span>
+    </div>
+
+    <div class="detail-meta-grid">
+      ${item.source ? `<div class="detail-meta-card"><div class="detail-meta-label">Heard this Tale from</div><div class="detail-meta-value">${item.source}</div></div>` : ''}
+      ${item.rating ? `<div class="detail-meta-card"><div class="detail-meta-label">Rating</div><div class="detail-meta-value" style="color:var(--accent)">★ ${item.rating}/10</div></div>` : ''}
+      ${item.date_added ? `<div class="detail-meta-card"><div class="detail-meta-label">Date Added</div><div class="detail-meta-value">${formatDate(item.date_added)}</div></div>` : ''}
+      ${item.date_engaged ? `<div class="detail-meta-card"><div class="detail-meta-label">${cat?.status_verb || 'Engaged'}</div><div class="detail-meta-value">${formatDate(item.date_engaged)}</div></div>` : ''}
+    </div>
+
+    ${(item.tags || []).length ? `
+    <div class="detail-section">
+      <div class="detail-section-title">Tags</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${item.tags.map(t => `<span class="tag-pill">${t}</span>`).join('')}
+      </div>
+    </div>` : ''}
+
+    ${item.notes ? `
+    <div class="detail-section">
+      <div class="detail-section-title">Notes</div>
+      <p style="font-size:14px;color:var(--text);line-height:1.6">${item.notes.replace(/\n/g, '<br>')}</p>
+    </div>` : ''}
+
+    <div class="detail-section" id="wtw-section">
+      <div class="detail-section-title" id="wtw-title">Finding where to ${cat?.status_verb?.toLowerCase() || 'engage'}…</div>
+      <div class="wtw-loading" id="wtw-content">Searching available platforms…</div>
+    </div>`;
+
+  // Load where to watch asynchronously
+  loadWhereToWatch(item, cat);
+}
+
+function closeItemDetail() {
+  currentView = previousView || 'dashboard';
+  currentCatId = previousCatId;
+  if (currentView === 'category' && currentCatId) {
+    setActiveNav('nav-cat-' + currentCatId);
+    renderCategoryView();
+  } else if (currentView === 'stats') {
+    setActiveNav('nav-stats');
+    renderStats();
+  } else {
+    setActiveNav('nav-dashboard');
+    renderDashboard();
+  }
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// ─── WHERE TO WATCH/PLAY/READ/BUY ────────────────────────────────────────────
+async function loadWhereToWatch(item, cat) {
+  const source = cat?.image_source || 'ai';
+  const title = item.title;
+  const country = localStorage.getItem('streamingCountry') || 'US';
+  const titleEl = document.getElementById('wtw-title');
+  const contentEl = document.getElementById('wtw-content');
+  if (!titleEl || !contentEl) return;
+
+  const verbMap = { openlibrary: 'Read', tmdb: 'Watch', rawg: 'Play', bgg: 'Play', places: 'Visit', ai: 'Get' };
+  const verb = verbMap[source] || cat?.status_verb || 'Get';
+  titleEl.textContent = `Where to ${verb}`;
+
+  try {
+    let html = '';
+
+    if (source === 'tmdb') {
+      html = await buildTMDBWhere(title, country);
+    } else if (source === 'openlibrary') {
+      html = await buildBooksWhere(title);
+    } else if (source === 'rawg') {
+      html = await buildGamesWhere(title);
+    } else if (source === 'bgg') {
+      html = buildBGGWhere(title);
+    } else if (source === 'places') {
+      html = buildPlacesWhere(title);
+    } else {
+      html = buildGenericWhere(title);
+    }
+
+    if (contentEl) contentEl.innerHTML = html || '<p style="color:var(--text3);font-size:13px">No availability info found — try searching manually below.</p>';
+  } catch(e) {
+    if (contentEl) contentEl.innerHTML = '<p style="color:var(--text3);font-size:13px">Could not load availability info.</p>';
+  }
+}
+
+async function buildTMDBWhere(title, country) {
+  const key = '4a3b711b67bee2e30843ca96d68a09c1';
+  // Search for the item first to get its ID
+  const searchR = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${key}&query=${encodeURIComponent(title)}&page=1`);
+  const searchD = await searchR.json();
+  const result = searchD.results?.[0];
+  if (!result) return buildTMDBFallback(title);
+
+  const type = result.media_type === 'tv' ? 'tv' : 'movie';
+  const id = result.id;
+
+  const provR = await fetch(`https://api.themoviedb.org/3/${type}/${id}/watch/providers?api_key=${key}`);
+  const provD = await provR.json();
+  const countryData = provD.results?.[country] || provD.results?.['US'];
+
+  if (!countryData) return buildTMDBFallback(title);
+
+  const link = countryData.link || '';
+  const flatrate = countryData.flatrate || []; // subscription
+  const rent = countryData.rent || [];
+  const buy = countryData.buy || [];
+
+  let html = '<div class="wtw-grid">';
+
+  const addProviders = (providers, typeLabel) => {
+    providers.slice(0, 4).forEach(p => {
+      const logo = p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : null;
+      html += `<a href="${link}" target="_blank" rel="noopener" class="wtw-item">
+        <div class="wtw-logo">${logo ? `<img src="${logo}" alt="${p.provider_name}">` : `<div class="wtw-logo-text">${p.provider_name.substring(0,4)}</div>`}</div>
+        <div class="wtw-name">${p.provider_name}</div>
+        <div class="wtw-type">${typeLabel}</div>
+      </a>`;
+    });
+  };
+
+  if (flatrate.length) addProviders(flatrate, 'Stream');
+  if (rent.length) addProviders(rent, 'Rent');
+  if (buy.length) addProviders(buy, 'Buy');
+
+  html += '</div>';
+
+  if (!flatrate.length && !rent.length && !buy.length) return buildTMDBFallback(title);
+
+  html += buildSearchLinks([
+    { label: '🎬 JustWatch', url: `https://www.justwatch.com/us/search?q=${encodeURIComponent(title)}` },
+    { label: '🎥 TMDB', url: `https://www.themoviedb.org/${type}/${id}` },
+  ]);
+
+  return html;
+}
+
+function buildTMDBFallback(title) {
+  return buildSearchLinks([
+    { label: '🎬 JustWatch', url: `https://www.justwatch.com/us/search?q=${encodeURIComponent(title)}` },
+    { label: '▶ Google TV', url: `https://tv.google.com/search?q=${encodeURIComponent(title)}` },
+    { label: '🎥 TMDB', url: `https://www.themoviedb.org/search?query=${encodeURIComponent(title)}` },
+  ]);
+}
+
+async function buildBooksWhere(title) {
+  let html = '';
+  try {
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(title)}&maxResults=1&printType=books`);
+    const d = await r.json();
+    const book = d.items?.[0];
+    const links = [];
+    if (book?.volumeInfo?.previewLink) links.push({ label: '📖 Google Books', url: book.volumeInfo.previewLink });
+    if (book?.saleInfo?.buyLink) links.push({ label: '🛒 Buy on Google', url: book.saleInfo.buyLink });
+    links.push({ label: '📚 Open Library', url: `https://openlibrary.org/search?q=${encodeURIComponent(title)}` });
+    links.push({ label: '📦 Amazon', url: `https://www.amazon.com/s?k=${encodeURIComponent(title)}&i=stripbooks` });
+    html = buildSearchLinks(links);
+  } catch {
+    html = buildSearchLinks([
+      { label: '📚 Open Library', url: `https://openlibrary.org/search?q=${encodeURIComponent(title)}` },
+      { label: '📦 Amazon', url: `https://www.amazon.com/s?k=${encodeURIComponent(title)}&i=stripbooks` },
+    ]);
+  }
+  return html;
+}
+
+async function buildGamesWhere(title) {
+  const links = [];
+  try {
+    const key = '5a0a9c4e63b0490da52daf9c99da4e05';
+    const r = await fetch(`https://api.rawg.io/api/games?key=${key}&search=${encodeURIComponent(title)}&page_size=1`);
+    const d = await r.json();
+    const game = d.results?.[0];
+    if (game?.stores?.length) {
+      const storeMap = {
+        1: { label: '🎮 Steam', base: 'https://store.steampowered.com/search/?term=' },
+        2: { label: '🕹 Xbox', base: 'https://www.xbox.com/en-US/search?q=' },
+        3: { label: '🎮 PS Store', base: 'https://store.playstation.com/search/' },
+        4: { label: '📱 App Store', base: 'https://apps.apple.com/us/search?term=' },
+        5: { label: '📱 Google Play', base: 'https://play.google.com/store/search?q=' },
+        6: { label: '🛒 GOG', base: 'https://www.gog.com/games?search=' },
+        11: { label: '🎮 Epic', base: 'https://www.epicgames.com/store/browse?q=' },
+      };
+      game.stores.slice(0, 4).forEach(s => {
+        const store = storeMap[s.store.id];
+        if (store) links.push({ label: store.label, url: store.base + encodeURIComponent(title) });
+      });
+    }
+  } catch {}
+  if (!links.length) {
+    links.push({ label: '🎮 Steam', url: `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}` });
+    links.push({ label: '🎮 Epic Games', url: `https://www.epicgames.com/store/browse?q=${encodeURIComponent(title)}` });
+  }
+  links.push({ label: '📦 Amazon', url: `https://www.amazon.com/s?k=${encodeURIComponent(title)}&i=videogames` });
+  return buildSearchLinks(links);
+}
+
+function buildBGGWhere(title) {
+  return buildSearchLinks([
+    { label: '🎲 BoardGameGeek', url: `https://boardgamegeek.com/geeksearch.php?action=search&q=${encodeURIComponent(title)}` },
+    { label: '🛒 Amazon', url: `https://www.amazon.com/s?k=${encodeURIComponent(title)}&i=toys-and-games` },
+    { label: '🎲 MiniatureMarket', url: `https://www.miniaturemarket.com/catalogsearch/result/?q=${encodeURIComponent(title)}` },
+  ]);
+}
+
+function buildPlacesWhere(title) {
+  return buildSearchLinks([
+    { label: '📍 Google Maps', url: `https://www.google.com/maps/search/${encodeURIComponent(title)}` },
+    { label: '⭐ Yelp', url: `https://www.yelp.com/search?find_desc=${encodeURIComponent(title)}` },
+    { label: '🍽 TripAdvisor', url: `https://www.tripadvisor.com/Search?q=${encodeURIComponent(title)}` },
+  ]);
+}
+
+function buildGenericWhere(title) {
+  return buildSearchLinks([
+    { label: '🛒 Amazon', url: `https://www.amazon.com/s?k=${encodeURIComponent(title)}` },
+    { label: '🛍 Google Shopping', url: `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(title)}` },
+    { label: '🏷 eBay', url: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(title)}` },
+  ]);
+}
+
+function buildSearchLinks(links) {
+  return `<div class="wtw-search-links">${links.map(l =>
+    `<a href="${l.url}" target="_blank" rel="noopener" class="wtw-link">${l.label} ↗</a>`
+  ).join('')}</div>`;
+}
+
 // ─── STATS ───────────────────────────────────────────────────────────────────
 function renderStats() {
   const completed = allItems.filter(i => i.status === 'Completed');
@@ -1502,7 +1789,7 @@ function renderStats() {
     </div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
       <div class="chart-card">
-        <div class="section-title">Top Recommenders</div>
+        <div class="section-title">Best Tales from</div>
         ${topRecs.length ? `<div class="recommender-list">${topRecs.map(r => `<div class="rec-row" style="cursor:pointer" onclick="showRecommenderItems('${r.name.replace(/'/g, "\\'")}')">
           <div class="rec-avatar">${r.name.substring(0, 2).toUpperCase()}</div>
           <div style="flex:1;min-width:0">
@@ -1511,7 +1798,7 @@ function renderStats() {
           </div>
           <div class="rec-bar-wrap"><div class="rec-bar" style="width:${Math.round(r.count / maxRec * 100)}%"></div></div>
           <div class="rec-count">${r.count}</div>
-        </div>`).join('')}</div>` : '<p style="color:var(--text3);font-size:13px">Fill in "Heard From" on items to track recommenders!</p>'}
+        </div>`).join('')}</div>` : '<p style="color:var(--text3);font-size:13px">No Tales yet — add a source when logging items!</p>'}
       </div>
       <div class="chart-card">
         <div class="section-title">Top Tags</div>
@@ -1519,7 +1806,7 @@ function renderStats() {
       </div>
     </div>
     ${allRecs.length > 0 ? `<div class="chart-card">
-      <div class="section-title">All Recommenders</div>
+      <div class="section-title">Heard Tales from</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
         ${allRecs.map(r => `<div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--bg3);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.15s" onclick="showRecommenderItems('${r.name.replace(/'/g, "\\'")}')">
           <div class="rec-avatar" style="flex-shrink:0">${r.name.substring(0, 2).toUpperCase()}</div>
@@ -1539,17 +1826,26 @@ function showRecommenderItems(name) {
     <div class="page-header">
       <button class="btn-sm" onclick="renderStats()" style="font-size:18px;padding:4px 8px">←</button>
       <div class="rec-avatar" style="width:36px;height:36px;font-size:14px">${initials}</div>
-      <h1 class="page-title">${name}</h1>
-      <span style="color:var(--text3);font-size:13px;margin-left:4px">${items.length} recommendation${items.length !== 1 ? 's' : ''}</span>
+      <h1 class="page-title">Tales from ${name}</h1>
+      <span style="color:var(--text3);font-size:13px;margin-left:4px">${items.length} tale${items.length !== 1 ? 's' : ''}</span>
     </div>
     <div class="items-list">
-      ${items.length ? items.map(renderItemRow).join('') : '<div class="empty-state"><div class="empty-icon">🔍</div><p>No items found</p></div>'}
+      ${items.length ? items.map(renderItemRow).join('') : '<div class="empty-state"><div class="empty-icon">🔍</div><p>No tales found</p></div>'}
     </div>`;
 }
 
 // ─── SETTINGS ────────────────────────────────────────────────────────────────
 function renderSettings() {
   const currentTheme = localStorage.getItem('theme') || 'dark';
+  const currentCountry = localStorage.getItem('streamingCountry') || 'US';
+  const countries = [
+    ['US','🇺🇸 United States'],['GB','🇬🇧 United Kingdom'],['CA','🇨🇦 Canada'],
+    ['AU','🇦🇺 Australia'],['DE','🇩🇪 Germany'],['FR','🇫🇷 France'],
+    ['JP','🇯🇵 Japan'],['MX','🇲🇽 Mexico'],['BR','🇧🇷 Brazil'],
+    ['IN','🇮🇳 India'],['KR','🇰🇷 South Korea'],['ES','🇪🇸 Spain'],
+    ['IT','🇮🇹 Italy'],['NL','🇳🇱 Netherlands'],['SE','🇸🇪 Sweden'],
+    ['NZ','🇳🇿 New Zealand'],['ZA','🇿🇦 South Africa'],['SG','🇸🇬 Singapore'],
+  ];
   document.getElementById('main-content').innerHTML = `
     <div class="page-header"><h1 class="page-title">Settings</h1></div>
     <div class="settings-section">
@@ -1561,6 +1857,13 @@ function renderSettings() {
             ${{ dark:'🌙 Dark', light:'☀️ Light', system:'⚙️ System' }[t]}
           </button>`).join('')}
       </div>
+    </div>
+    <div class="settings-section">
+      <h3>Streaming Region</h3>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Used to find where to watch shows and movies in your country.</p>
+      <select onchange="localStorage.setItem('streamingCountry',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;width:100%;max-width:260px">
+        ${countries.map(([code, label]) => `<option value="${code}" ${currentCountry === code ? 'selected' : ''}>${label}</option>`).join('')}
+      </select>
     </div>
     <div class="settings-section">
       <h3>Install App</h3>
