@@ -695,7 +695,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.1.5'; // Update this with each deployment
+const APP_VERSION = '2.1.6'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1151,6 +1151,7 @@ function handleSearch(q) {
 
 // ─── ITEM MODAL ───────────────────────────────────────────────────────────────
 function openItemModal(catId, itemId) {
+  try {
   editingItemId = itemId || null;
   currentTags = [];
 
@@ -1205,6 +1206,10 @@ function openItemModal(catId, itemId) {
   updateModalPlaceholder();
   document.getElementById('item-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('modal-title').focus(), 100);
+  } catch(e) {
+    console.error('openItemModal error:', e);
+    showToast('Error opening modal: ' + e.message);
+  }
 }
 
 function closeItemModal() {
