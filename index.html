@@ -683,7 +683,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.1.1'; // Update this with each deployment
+const APP_VERSION = '2.1.2'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1670,14 +1670,6 @@ async function openShareModal(itemId) {
     return;
   }
 
-  // Auto-make item accessible via link when share modal is opened
-  // is_public = true means the specific link always works
-  // share_override controls whether it appears on public profile
-  if (!item.is_public) {
-    await db.from('items').update({ is_public: true }).eq('id', itemId);
-    item.is_public = true;
-  }
-
   // Preview
   const preview = document.getElementById('share-item-preview');
   preview.innerHTML = `
@@ -1688,12 +1680,10 @@ async function openShareModal(itemId) {
       ${item.source ? `<div style="font-size:11px;color:var(--text3)">Tale from ${item.source}</div>` : ''}
     </div>`;
 
-  // Profile visibility controls whether item appears on public profile
   const vis = item.share_override || 'link-only';
   renderShareVisibilityBtns(vis, item);
   updateShareLink(item);
 
-  // Native share button
   const nativeBtn = document.getElementById('share-native-btn');
   if (navigator.share) nativeBtn.style.display = 'inline-flex';
   else nativeBtn.style.display = 'none';
@@ -1709,7 +1699,7 @@ function renderShareVisibilityBtns(currentVis, item) {
     { value: 'public', label: '🌐 Profile public', desc: 'Shown on your profile' },
   ];
   btns.innerHTML = `
-    <p style="font-size:12px;color:var(--text3);margin-bottom:8px;width:100%">Anyone with the link can view this Tale. Choose how it appears on your profile:</p>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:8px;width:100%">Copy the link below to share. Choose how it appears on your profile:</p>
     ${options.map(o => `
     <button class="btn-sm ${currentVis === o.value ? 'btn-accent' : ''}"
       onclick="setItemVisibility('${item.id}','${o.value}')"
@@ -1720,14 +1710,12 @@ function renderShareVisibilityBtns(currentVis, item) {
 }
 
 async function setItemVisibility(itemId, visibility) {
-  // is_public always stays true once a link is generated
-  // share_override controls profile visibility
   const override = visibility === 'link-only' ? null : visibility;
-  await db.from('items').update({ share_override: override, is_public: true }).eq('id', itemId);
+  await db.from('items').update({ share_override: override }).eq('id', itemId);
   const item = allItems.find(i => i.id === itemId);
-  if (item) { item.share_override = override; item.is_public = true; }
+  if (item) { item.share_override = override; }
   renderShareVisibilityBtns(visibility, { id: itemId });
-  showToast(visibility === 'link-only' ? 'Link-only access set' : `Profile visibility updated`);
+  showToast(visibility === 'link-only' ? 'Link-only sharing selected' : 'Profile visibility updated');
 }
 
 function updateShareLink(item) {
@@ -1741,8 +1729,14 @@ function updateShareLink(item) {
   privateNote.style.display = 'none';
 }
 
-function copyShareLink() {
+async function copyShareLink() {
   const input = document.getElementById('share-link-input');
+  // Only NOW set is_public = true — user has explicitly chosen to copy the link
+  const item = allItems.find(i => i.id === sharingItemId);
+  if (item && !item.is_public) {
+    await db.from('items').update({ is_public: true }).eq('id', sharingItemId);
+    item.is_public = true;
+  }
   navigator.clipboard.writeText(input.value).then(() => showToast('Link copied! 📋'));
 }
 
@@ -1750,6 +1744,11 @@ async function nativeShare() {
   const item = allItems.find(i => i.id === sharingItemId);
   const username = currentProfile?.username || 'me';
   const url = `https://heardtale.com/tale/${username}/${sharingItemId}`;
+  // Only set is_public = true when user explicitly shares
+  if (item && !item.is_public) {
+    await db.from('items').update({ is_public: true }).eq('id', sharingItemId);
+    item.is_public = true;
+  }
   try {
     await navigator.share({
       title: item?.title || 'A Tale on HeardTale',
