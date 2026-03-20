@@ -450,6 +450,10 @@
       <span class="nav-icon">⚙</span>
       <span class="nav-label">Settings</span>
     </div>
+    <div class="bottom-nav-item" id="bnav-admin" onclick="showView('admin');closeMobileCats()" style="display:none">
+      <span class="nav-icon">🛡</span>
+      <span class="nav-label">Admin</span>
+    </div>
   </nav>
 </div>
 
@@ -573,6 +577,7 @@
         </div>
         <div class="form-field">
           <label>Heard this Tale from</label>
+          <input type="text" id="qa-source" placeholder="Who told you?" onkeydown="if(event.key==='Enter')saveQuickAdd()">
         </div>
       </div>
     </div>
@@ -678,7 +683,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.0.4'; // Update this with each deployment
+const APP_VERSION = '2.1.0'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -813,6 +818,7 @@ async function showApp() {
   // Show admin nav if user is admin
   if (currentProfile?.is_admin) {
     document.getElementById('nav-admin').style.display = 'flex';
+    document.getElementById('bnav-admin').style.display = 'flex';
   }
 
   showView('dashboard');
@@ -905,7 +911,7 @@ function setActiveNav(id) {
   const el = document.getElementById(id);
   if (el) el.classList.add('active');
   // Mirror to bottom nav
-  const bnavMap = { 'nav-dashboard': 'bnav-dashboard', 'nav-stats': 'bnav-stats', 'nav-settings': 'bnav-settings' };
+  const bnavMap = { 'nav-dashboard': 'bnav-dashboard', 'nav-stats': 'bnav-stats', 'nav-settings': 'bnav-settings', 'nav-admin': 'bnav-admin' };
   const bnavId = bnavMap[id];
   if (bnavId) { const bel = document.getElementById(bnavId); if (bel) bel.classList.add('active'); }
   // If it's a category, highlight the Categories bottom nav item
@@ -2560,6 +2566,7 @@ async function checkAdminRoute() {
   await loadItems();
   renderSidebar();
   document.getElementById('nav-admin').style.display = 'flex';
+  document.getElementById('bnav-admin').style.display = 'flex';
   showView('admin');
   window.history.replaceState(null, '', '/admin');
   return true;
