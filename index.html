@@ -696,7 +696,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.2.0'; // Update this with each deployment
+const APP_VERSION = '2.2.1'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -722,7 +722,7 @@ async function init() {
   // Supabase processes the email confirmation token from the URL hash
   db.auth.onAuthStateChange((event, session) => {
     console.log('Auth event:', event, session ? 'has session' : 'no session');
-    if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+    if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
       if (session) {
         currentUser = session.user;
         // Clean up the URL if it has tokens in it
@@ -731,6 +731,10 @@ async function init() {
         }
         showApp();
       }
+    }
+    if (event === 'TOKEN_REFRESHED') {
+      // Just update the user reference — don't re-render the whole app
+      if (session) currentUser = session.user;
     }
     if (event === 'SIGNED_OUT') {
       currentUser = null;
