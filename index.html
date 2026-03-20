@@ -548,6 +548,18 @@
         <label>Image URL (manual override)</label>
         <input type="text" id="modal-image-url" placeholder="https://…" oninput="previewImage(this.value)">
       </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border);margin-top:0.5rem">
+        <span style="font-size:18px">🔒</span>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:500">Keep this Tale private</div>
+          <div style="font-size:11px;color:var(--text3)">Overrides your profile visibility — only you can see this item</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0">
+          <input type="checkbox" id="modal-force-private" style="opacity:0;width:0;height:0">
+          <span id="modal-force-private-track" onclick="toggleForcePrivate()" style="position:absolute;cursor:pointer;inset:0;background:var(--bg4);border-radius:12px;border:1px solid var(--border);transition:0.2s"></span>
+          <span id="modal-force-private-thumb" onclick="toggleForcePrivate()" style="position:absolute;left:3px;top:3px;width:16px;height:16px;background:var(--text3);border-radius:50%;transition:0.2s;pointer-events:none"></span>
+        </label>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn-sm btn-danger" id="modal-delete-btn" onclick="deleteItem()" style="display:none">Delete</button>
@@ -683,7 +695,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.1.2'; // Update this with each deployment
+const APP_VERSION = '2.1.4'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1073,6 +1085,7 @@ function renderRandomBanner() {
 function renderItemCard(item) {
   const priorityClass = item.priority === 3 ? 'p-high' : item.priority === 1 ? 'p-low' : 'p-med';
   const cat = categories.find(c => c.id === item.category_id);
+  const isForcePrivate = item.share_override === 'private';
   return `<div class="item-card" onclick="openItemDetail('${item.id}')">
     <div class="item-card-img">
       ${item.image_url
@@ -1080,7 +1093,9 @@ function renderItemCard(item) {
         : `<span style="font-size:2.5rem">${cat?.icon || '📁'}</span>`
       }
     </div>
-    <div class="item-card-badge"><span class="priority-dot ${priorityClass}"></span></div>
+    <div class="item-card-badge">
+      ${isForcePrivate ? `<span style="font-size:13px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.8))">🔒</span>` : `<span class="priority-dot ${priorityClass}"></span>`}
+    </div>
     <div class="item-card-body">
       <div class="item-card-title">${item.title}</div>
       <div class="item-card-meta">${item.rating ? '★ ' + item.rating : item.status}</div>
@@ -1091,6 +1106,7 @@ function renderItemCard(item) {
 function renderItemRow(item) {
   const cat = categories.find(c => c.id === item.category_id);
   const statusClass = { 'Backlog': 's-backlog', 'In Progress': 's-inprogress', 'Completed': 's-completed', 'Abandoned': 's-abandoned' }[item.status] || 's-backlog';
+  const isForcePrivate = item.share_override === 'private';
   return `<div class="item-row" onclick="openItemDetail('${item.id}')">
     <div class="item-row-thumb">
       ${item.image_url
@@ -1099,7 +1115,7 @@ function renderItemRow(item) {
       }
     </div>
     <div class="item-row-info">
-      <div class="item-row-title">${item.title}</div>
+      <div class="item-row-title">${isForcePrivate ? '🔒 ' : ''}${item.title}</div>
       <div class="item-row-sub">${cat?.name || ''}${item.source ? ' · ' + item.source : ''}${(item.tags || []).length ? ' · ' + item.tags.join(', ') : ''}</div>
     </div>
     <div class="item-row-right">
@@ -1156,6 +1172,7 @@ function openItemModal(catId, itemId) {
   document.getElementById('modal-title-text').textContent = 'Add Item';
   document.getElementById('modal-save-add-btn').style.display = 'inline-flex';
   document.getElementById('img-picker-container').style.display = 'none';
+  setForcePrivate(false); // Reset private toggle
 
   if (catId) document.getElementById('modal-category').value = catId;
   else if (currentCatId) document.getElementById('modal-category').value = currentCatId;
@@ -1180,6 +1197,8 @@ function openItemModal(catId, itemId) {
       if (item.image_url) previewImage(item.image_url);
       currentTags = [...(item.tags || [])];
       renderTagPills();
+      // Load force private state — item is force-private if share_override = 'private'
+      setForcePrivate(item.share_override === 'private');
     }
   }
 
@@ -1208,6 +1227,30 @@ function previewImage(url) {
     preview.innerHTML = '<span id="modal-img-placeholder">📁</span>';
     updateModalPlaceholder();
   }
+}
+
+function setForcePrivate(val) {
+  const track = document.getElementById('modal-force-private-track');
+  const thumb = document.getElementById('modal-force-private-thumb');
+  const checkbox = document.getElementById('modal-force-private');
+  if (!track || !thumb || !checkbox) return;
+  checkbox.checked = val;
+  if (val) {
+    track.style.background = 'var(--accent)';
+    track.style.borderColor = 'var(--accent2)';
+    thumb.style.background = '#1a1508';
+    thumb.style.transform = 'translateX(20px)';
+  } else {
+    track.style.background = 'var(--bg4)';
+    track.style.borderColor = 'var(--border)';
+    thumb.style.background = 'var(--text3)';
+    thumb.style.transform = 'translateX(0)';
+  }
+}
+
+function toggleForcePrivate() {
+  const checkbox = document.getElementById('modal-force-private');
+  setForcePrivate(!checkbox.checked);
 }
 
 // ─── IMAGE FETCHING ───────────────────────────────────────────────────────────
@@ -1457,6 +1500,7 @@ async function saveItem(addAnother = false) {
   const title = document.getElementById('modal-title').value.trim();
   if (!title) { showToast('Title is required'); return; }
 
+  const forcePrivate = document.getElementById('modal-force-private')?.checked || false;
   const payload = {
     user_id: currentUser.id,
     title,
@@ -1469,6 +1513,9 @@ async function saveItem(addAnother = false) {
     date_added: document.getElementById('modal-date-added').value || null,
     date_engaged: document.getElementById('modal-date-engaged').value || null,
     image_url: document.getElementById('modal-image-url').value.trim() || null,
+    // If force private, set share_override to 'private' and ensure is_public is false
+    share_override: forcePrivate ? 'private' : undefined,
+    is_public: forcePrivate ? false : undefined,
   };
 
   let itemId = editingItemId;
@@ -1588,14 +1635,13 @@ function openItemDetail(itemId) {
 
   const statusClass = { 'Backlog': 's-backlog', 'In Progress': 's-inprogress', 'Completed': 's-completed', 'Abandoned': 's-abandoned' }[item.status] || 's-backlog';
   const priorityLabel = item.priority === 3 ? '🔴 High' : item.priority === 1 ? '⚪ Low' : '🟡 Medium';
-  const stars = item.rating ? '★'.repeat(item.rating) + '☆'.repeat(10 - item.rating) : null;
 
   document.getElementById('main-content').innerHTML = `
     <div class="page-header" style="margin-bottom:1rem">
-      <button class="btn-sm" onclick="closeItemDetail()" style="font-size:18px;padding:4px 10px">←</button>
+      <button class="btn-sm" id="detail-back-btn" style="font-size:18px;padding:4px 10px">←</button>
       <div style="flex:1"></div>
-      <button class="btn-sm" onclick="openShareModal('${item.id}')">📤 Share</button>
-      <button class="btn-sm btn-accent" onclick="openItemModal(null,'${item.id}')">✏️ Edit</button>
+      <button class="btn-sm" id="detail-share-btn">📤 Share</button>
+      <button class="btn-sm btn-accent" id="detail-edit-btn">✏️ Edit</button>
     </div>
 
     ${item.image_url
@@ -1636,8 +1682,17 @@ function openItemDetail(itemId) {
       <div class="wtw-loading" id="wtw-content">Searching available platforms…</div>
     </div>`;
 
+  // Attach event listeners after innerHTML is set to avoid onclick issues
+  document.getElementById('detail-back-btn').addEventListener('click', closeItemDetail);
+  document.getElementById('detail-share-btn').addEventListener('click', () => openShareModal(item.id));
+  document.getElementById('detail-edit-btn').addEventListener('click', () => openItemModal(null, item.id));
+
   // Load where to watch asynchronously
   loadWhereToWatch(item, cat);
+
+  // Scroll content area to top so header buttons are visible
+  const content = document.getElementById('main-content');
+  if (content) content.scrollTop = 0;
 }
 
 function closeItemDetail() {
@@ -1667,6 +1722,12 @@ async function openShareModal(itemId) {
   if (!currentProfile?.username) {
     showToast('Set a username in Settings to share Tales!');
     showView('settings');
+    return;
+  }
+
+  // Block sharing if item is force-private
+  if (item.share_override === 'private') {
+    showToast('This Tale is set to private — edit it to change visibility before sharing.');
     return;
   }
 
@@ -1711,11 +1772,17 @@ function renderShareVisibilityBtns(currentVis, item) {
 
 async function setItemVisibility(itemId, visibility) {
   const override = visibility === 'link-only' ? null : visibility;
-  await db.from('items').update({ share_override: override }).eq('id', itemId);
+  const updatePayload = { share_override: override };
+  if (visibility === 'private') updatePayload.is_public = false;
+  await db.from('items').update(updatePayload).eq('id', itemId);
   const item = allItems.find(i => i.id === itemId);
-  if (item) { item.share_override = override; }
+  if (item) {
+    item.share_override = override;
+    if (visibility === 'private') item.is_public = false;
+  }
   renderShareVisibilityBtns(visibility, { id: itemId });
-  showToast(visibility === 'link-only' ? 'Link-only sharing selected' : 'Profile visibility updated');
+  const labels = { 'link-only': 'Link-only sharing selected', 'friends': 'Shown to mutual follows', 'public': 'Profile visibility updated', 'private': '🔒 This Tale is now private' };
+  showToast(labels[visibility] || 'Updated');
 }
 
 function updateShareLink(item) {
