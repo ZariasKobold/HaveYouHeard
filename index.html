@@ -695,7 +695,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.1.4'; // Update this with each deployment
+const APP_VERSION = '2.1.5'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1234,7 +1234,7 @@ function setForcePrivate(val) {
   const thumb = document.getElementById('modal-force-private-thumb');
   const checkbox = document.getElementById('modal-force-private');
   if (!track || !thumb || !checkbox) return;
-  checkbox.checked = val;
+  checkbox.checked = !!val;
   if (val) {
     track.style.background = 'var(--accent)';
     track.style.borderColor = 'var(--accent2)';
@@ -1250,6 +1250,7 @@ function setForcePrivate(val) {
 
 function toggleForcePrivate() {
   const checkbox = document.getElementById('modal-force-private');
+  if (!checkbox) return;
   setForcePrivate(!checkbox.checked);
 }
 
@@ -1513,9 +1514,8 @@ async function saveItem(addAnother = false) {
     date_added: document.getElementById('modal-date-added').value || null,
     date_engaged: document.getElementById('modal-date-engaged').value || null,
     image_url: document.getElementById('modal-image-url').value.trim() || null,
-    // If force private, set share_override to 'private' and ensure is_public is false
-    share_override: forcePrivate ? 'private' : undefined,
-    is_public: forcePrivate ? false : undefined,
+    share_override: forcePrivate ? 'private' : null,
+    is_public: forcePrivate ? false : false,
   };
 
   let itemId = editingItemId;
@@ -1564,6 +1564,7 @@ async function saveItem(addAnother = false) {
     document.getElementById('modal-status').value = 'Backlog';
     document.getElementById('modal-priority').value = '2';
     document.getElementById('modal-category').value = catId;
+    setForcePrivate(false);
     updateModalPlaceholder();
     document.getElementById('modal-title').focus();
     if (currentView === 'category') renderCategoryView();
