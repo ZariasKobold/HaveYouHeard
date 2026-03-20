@@ -683,7 +683,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.1.0'; // Update this with each deployment
+const APP_VERSION = '2.1.1'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -2519,13 +2519,13 @@ async function adminSearch() {
 }
 
 async function adminGrantProById(userId, email) {
-  const { error } = await db.from('profiles').upsert({
-    id: userId,
-    username: email.split('@')[0].replace(/[^a-z0-9_]/gi, '_').toLowerCase().substring(0, 20),
-    privacy: 'private',
-    is_pro: true,
-    pro_granted_at: new Date().toISOString()
-  }, { onConflict: 'id' });
+  // Generate a temporary username from email
+  const tempUsername = email.split('@')[0].replace(/[^a-z0-9_]/gi, '_').toLowerCase().substring(0, 20);
+  // Use security definer function to bypass RLS
+  const { error } = await db.rpc('admin_grant_pro', {
+    target_user_id: userId,
+    target_username: tempUsername
+  });
   if (error) { showToast('Error: ' + error.message); return; }
   showToast(`Pro granted to ${email} ✓`);
   renderAdminDashboard();
