@@ -696,7 +696,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.2.1'; // Update this with each deployment
+const APP_VERSION = '2.2.2'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -729,7 +729,11 @@ async function init() {
         if (window.location.hash && window.location.hash.includes('access_token')) {
           window.history.replaceState(null, '', window.location.pathname);
         }
-        showApp();
+        // Only call showApp if the app isn't already visible
+        if (document.getElementById('app').style.display === 'none' ||
+            document.getElementById('app').style.display === '') {
+          showApp();
+        }
       }
     }
     if (event === 'TOKEN_REFRESHED') {
@@ -2789,7 +2793,10 @@ if ('serviceWorker' in navigator) {
 
       // Also check when user returns to the tab after being away
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') reg.update();
+        if (document.visibilityState === 'visible') {
+          console.log('App resumed — checking for SW update, current view:', currentView);
+          reg.update();
+        }
       });
 
       // A new SW is found — wait for it to install then notify
