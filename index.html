@@ -696,7 +696,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.2.2'; // Update this with each deployment
+const APP_VERSION = '2.3.0'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1421,6 +1421,38 @@ async function fetchBGGMulti(title) {
   } catch { return []; }
 }
 
+async function fetchITunesMusicMulti(title, entity = 'musicTrack') {
+  try {
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=music&entity=${entity}&limit=5`);
+    const d = await r.json();
+    return (d.results || []).map(item => item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
+  } catch { return []; }
+}
+
+async function fetchITunesPodcastMulti(title) {
+  try {
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=podcast&entity=podcast&limit=5`);
+    const d = await r.json();
+    return (d.results || []).map(item => item.artworkUrl600 || item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
+  } catch { return []; }
+}
+
+async function fetchJikanMulti(title) {
+  try {
+    const r = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title)}&limit=5&sfw=false`);
+    const d = await r.json();
+    return (d.data || []).map(item => item.images?.jpg?.large_image_url || item.images?.jpg?.image_url).filter(Boolean);
+  } catch { return []; }
+}
+
+async function fetchITunesAppMulti(title) {
+  try {
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=software&entity=software&limit=5`);
+    const d = await r.json();
+    return (d.results || []).map(item => item.artworkUrl512 || item.artworkUrl100).filter(Boolean);
+  } catch { return []; }
+}
+
 // Combined fetchers per source type — always 3 sources, same category only
 const IMAGE_FETCHERS = {
   tmdb: async (title) => {
@@ -1452,6 +1484,26 @@ const IMAGE_FETCHERS = {
   places: async (title) => {
     // For places, search TMDB for documentary/food content as a proxy
     return fetchTMDBMulti(title);
+  },
+  itunes_music: async (title) => {
+    const [music, itunes] = await Promise.all([
+      fetchITunesMusicMulti(title),
+      fetchITunesMusicMulti(title, 'album')
+    ]);
+    return [...new Set([...music, ...itunes])].slice(0, 5);
+  },
+  itunes_podcast: async (title) => {
+    return fetchITunesPodcastMulti(title);
+  },
+  jikan: async (title) => {
+    const [jikan, tmdb] = await Promise.all([
+      fetchJikanMulti(title),
+      fetchTMDBMulti(title)
+    ]);
+    return [...new Set([...jikan, ...tmdb])].slice(0, 5);
+  },
+  itunes_app: async (title) => {
+    return fetchITunesAppMulti(title);
   },
   ai: async (title) => {
     // For custom categories try TMDB + iTunes as general fallback
@@ -1896,7 +1948,18 @@ async function loadWhereToWatch(item, cat) {
   const contentEl = document.getElementById('wtw-content');
   if (!titleEl || !contentEl) return;
 
-  const verbMap = { openlibrary: 'Read', tmdb: 'Watch', rawg: 'Play', bgg: 'Play', places: 'Visit', ai: 'Get' };
+  const verbMap = {
+    openlibrary: 'Read',
+    tmdb: 'Watch',
+    rawg: 'Play',
+    bgg: 'Play',
+    places: 'Visit',
+    itunes_music: 'Listen',
+    itunes_podcast: 'Listen',
+    jikan: 'Watch',
+    itunes_app: 'Get',
+    ai: 'Get'
+  };
   const verb = verbMap[source] || cat?.status_verb || 'Get';
   titleEl.textContent = `Where to ${verb}`;
 
@@ -1913,6 +1976,14 @@ async function loadWhereToWatch(item, cat) {
       html = buildBGGWhere(title);
     } else if (source === 'places') {
       html = buildPlacesWhere(title);
+    } else if (source === 'itunes_music') {
+      html = await buildMusicWhere(title);
+    } else if (source === 'itunes_podcast') {
+      html = await buildPodcastWhere(title);
+    } else if (source === 'jikan') {
+      html = await buildAnimeWhere(title, country);
+    } else if (source === 'itunes_app') {
+      html = await buildAppWhere(title);
     } else {
       html = buildGenericWhere(title);
     }
@@ -2056,6 +2127,79 @@ function buildGenericWhere(title) {
     { label: '🛍 Google Shopping', url: `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(title)}` },
     { label: '🏷 eBay', url: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(title)}` },
   ]);
+}
+
+async function buildMusicWhere(title) {
+  const links = [];
+  try {
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=music&entity=album&limit=1`);
+    const d = await r.json();
+    const result = d.results?.[0];
+    if (result?.collectionViewUrl) {
+      links.push({ label: '🎵 Apple Music', url: result.collectionViewUrl });
+    }
+    if (result?.collectionId) {
+      links.push({ label: '🎵 Buy on iTunes', url: `https://music.apple.com/album/${result.collectionId}` });
+    }
+  } catch {}
+  links.push({ label: '🎧 Spotify', url: `https://open.spotify.com/search/${encodeURIComponent(title)}` });
+  links.push({ label: '🎵 Apple Music Search', url: `https://music.apple.com/search?term=${encodeURIComponent(title)}` });
+  links.push({ label: '🛒 Amazon Music', url: `https://www.amazon.com/s?k=${encodeURIComponent(title)}&i=digital-music` });
+  return buildSearchLinks(links);
+}
+
+async function buildPodcastWhere(title) {
+  const links = [];
+  try {
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=podcast&entity=podcast&limit=1`);
+    const d = await r.json();
+    const result = d.results?.[0];
+    if (result?.trackViewUrl) {
+      links.push({ label: '🎙️ Apple Podcasts', url: result.trackViewUrl });
+    }
+  } catch {}
+  links.push({ label: '🎧 Spotify Podcasts', url: `https://open.spotify.com/search/${encodeURIComponent(title)}/podcasts` });
+  links.push({ label: '🎙️ Pocket Casts', url: `https://pocketcasts.com/search?q=${encodeURIComponent(title)}` });
+  links.push({ label: '🔍 Listen Notes', url: `https://www.listennotes.com/search/?q=${encodeURIComponent(title)}` });
+  return buildSearchLinks(links);
+}
+
+async function buildAnimeWhere(title, country) {
+  const links = [];
+  try {
+    const r = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title)}&limit=1`);
+    const d = await r.json();
+    const result = d.data?.[0];
+    if (result?.url) {
+      links.push({ label: '📖 MyAnimeList', url: result.url });
+    }
+    // Check streaming links from MAL
+    if (result?.streaming?.length) {
+      result.streaming.slice(0, 2).forEach(s => {
+        links.push({ label: `▶ ${s.name}`, url: s.url });
+      });
+    }
+  } catch {}
+  links.push({ label: '🎌 Crunchyroll', url: `https://www.crunchyroll.com/search?q=${encodeURIComponent(title)}` });
+  links.push({ label: '▶ Netflix Anime', url: `https://www.netflix.com/search?q=${encodeURIComponent(title)}` });
+  links.push({ label: '🛒 Amazon', url: `https://www.amazon.com/s?k=${encodeURIComponent(title + ' anime')}&i=movies-tv` });
+  return buildSearchLinks(links);
+}
+
+async function buildAppWhere(title) {
+  const links = [];
+  try {
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=software&entity=software&limit=1`);
+    const d = await r.json();
+    const result = d.results?.[0];
+    if (result?.trackViewUrl) {
+      links.push({ label: '📱 App Store', url: result.trackViewUrl });
+    }
+  } catch {}
+  links.push({ label: '📱 Apple App Store', url: `https://apps.apple.com/search?term=${encodeURIComponent(title)}` });
+  links.push({ label: '🤖 Google Play', url: `https://play.google.com/store/search?q=${encodeURIComponent(title)}&c=apps` });
+  links.push({ label: '🔍 AlternativeTo', url: `https://alternativeto.net/browse/search/?q=${encodeURIComponent(title)}` });
+  return buildSearchLinks(links);
 }
 
 function buildSearchLinks(links) {
@@ -2651,14 +2795,18 @@ async function checkAdminRoute() {
 // ─── PUBLIC TALE ROUTER ───────────────────────────────────────────────────────
 // Handles heardtale.com/tale/[username]/[itemId] shared links
 async function checkPublicRoute() {
-  // Handle redirect from 404.html (GitHub Pages SPA routing)
-  const redirect = sessionStorage.getItem('ht_redirect');
-  if (redirect) {
-    sessionStorage.removeItem('ht_redirect');
-    window.history.replaceState(null, '', redirect);
-  }
+  // Handle redirect from 404.html using query parameter
+  // This works across ALL browsers including WebViews (Telegram, Facebook, etc.)
+  // where sessionStorage may not persist across redirects
+  let path = window.location.pathname;
 
-  const path = window.location.pathname;
+  const urlParams = new URLSearchParams(window.location.search);
+  const redirected = urlParams.get('r');
+  if (redirected) {
+    const decoded = decodeURIComponent(redirected);
+    window.history.replaceState(null, '', decoded);
+    path = decoded.split('?')[0];
+  }
 
   // Check for admin route
   if (path === '/admin' || path === '/admin/') {

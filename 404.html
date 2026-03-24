@@ -97,16 +97,22 @@
 </div>
 <script>
   const path = window.location.pathname;
+  const search = window.location.search;
+  const hash = window.location.hash;
 
+  // Known app routes that should redirect to the SPA
   const isAppRoute =
     path === '/admin' ||
     path === '/admin/' ||
     /^\/tale\/[^\/]+\/[^\/]+\/?$/.test(path);
 
   if (isAppRoute) {
-    sessionStorage.setItem('ht_redirect', path + window.location.search + window.location.hash);
-    window.location.replace('/');
+    // Use query parameter instead of sessionStorage — works in ALL browsers
+    // including WebViews used by Telegram, Facebook, Instagram etc.
+    const encoded = encodeURIComponent(path + search + hash);
+    window.location.replace('/?r=' + encoded);
   }
+  // All other paths stay on the 404 page
 </script>
 </body>
 </html>
