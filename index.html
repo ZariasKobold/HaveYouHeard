@@ -365,7 +365,7 @@
 <div id="auth-screen">
   <div class="auth-box">
     <div class="auth-logo">
-      <h1>HeardTale</h1>
+      <img id="auth-logo-img" src="logo-dark.png" alt="HeardTale" style="width:260px;max-width:100%;margin-bottom:0.5rem">
       <p>Every recommendation has a story.</p>
     </div>
     <div class="auth-tabs">
@@ -396,7 +396,9 @@
 <!-- ═══════════════════════════ APP ═══════════════════════════ -->
 <div id="app">
   <div class="topbar">
-    <div class="topbar-logo">HeardTale</div>
+    <div class="topbar-logo">
+      <img id="topbar-logo-img" src="logo-dark.png" alt="HeardTale" style="height:36px;width:auto;display:block">
+    </div>
     <div class="topbar-search">
       <input type="text" id="global-search" placeholder="Search HeardTale..." oninput="handleSearch(this.value)">
     </div>
@@ -696,7 +698,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.3.1'; // Update this with each deployment
+const APP_VERSION = '2.3.2'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -2576,6 +2578,13 @@ function applyTheme(theme) {
   const btn = document.getElementById('theme-toggle-btn');
   if (btn) btn.textContent = THEME_LABELS[theme] || '🌙 Dark';
   localStorage.setItem('theme', theme);
+
+  // Swap logos based on theme
+  const logoSrc = useDark ? 'logo-dark.png' : 'logo-light.png';
+  ['topbar-logo-img', 'auth-logo-img'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.src = logoSrc;
+  });
 }
 
 function cycleTheme() {
@@ -2837,7 +2846,7 @@ async function checkPublicRoute() {
   publicPage.style.cssText = 'position:fixed;inset:0;background:var(--bg);color:var(--text);font-family:\'DM Sans\',sans-serif;z-index:500;overflow-y:auto;';
   publicPage.innerHTML = `
     <div style="background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5rem;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10">
-      <span style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--accent)">HeardTale</span>
+      <img src="${(localStorage.getItem('theme') === 'light') ? 'logo-light.png' : 'logo-dark.png'}" alt="HeardTale" style="height:36px;width:auto;display:block">
       ${loggedInUser
         ? `<button onclick="document.getElementById('public-page').remove();document.getElementById('app').style.display='flex';" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 12px;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer">← Back to my Tales</button>`
         : `<a href="https://heardtale.com" style="color:var(--accent);font-size:13px;text-decoration:none">Sign up free →</a>`
