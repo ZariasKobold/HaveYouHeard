@@ -396,7 +396,7 @@
 <!-- ═══════════════════════════ APP ═══════════════════════════ -->
 <div id="app">
   <div class="topbar">
-    <div class="topbar-logo">
+    <div class="topbar-logo" onclick="showView('dashboard')" style="cursor:pointer">
       <img id="topbar-logo-img" src="logo-dark.png" alt="HeardTale" style="height:36px;width:auto;display:block">
     </div>
     <div class="topbar-search">
@@ -490,7 +490,14 @@
         </div>
       </div>
       <div id="img-picker-container" style="display:none">
-        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Pick an image</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px">Pick an image</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="btn-sm" id="img-prev-btn" onclick="fetchImagePage(-1)" style="padding:3px 8px;font-size:11px;display:none">← Prev</button>
+            <span id="img-page-label" style="font-size:11px;color:var(--text3)"></span>
+            <button class="btn-sm" id="img-next-btn" onclick="fetchImagePage(1)" style="padding:3px 8px;font-size:11px">Next →</button>
+          </div>
+        </div>
         <div class="img-picker-grid" id="img-picker-grid"></div>
       </div>
       <div class="form-row">
@@ -698,7 +705,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.3.2'; // Update this with each deployment
+const APP_VERSION = '2.3.3'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1266,28 +1273,43 @@ function toggleForcePrivate() {
 }
 
 // ─── IMAGE FETCHING ───────────────────────────────────────────────────────────
+let currentImgPage = 1;
+let currentImgTitle = '';
+let currentImgSource = '';
+
 async function fetchImageForModal() {
   const title = document.getElementById('modal-title').value.trim();
   if (!title) { showToast('Enter a title first'); return; }
+  currentImgPage = 1;
+  currentImgTitle = title;
   const catId = document.getElementById('modal-category').value;
   const cat = categories.find(c => c.id === catId);
-  const source = cat?.image_source || 'ai';
+  currentImgSource = cat?.image_source || 'ai';
+  await fetchImagePage(0);
+}
+
+async function fetchImagePage(direction) {
+  currentImgPage = Math.max(1, currentImgPage + direction);
+  const title = currentImgTitle;
+  const source = currentImgSource;
   const statusEl = document.getElementById('img-fetch-status');
   const btn = document.getElementById('fetch-img-btn');
+  const nextBtn = document.getElementById('img-next-btn');
+  const prevBtn = document.getElementById('img-prev-btn');
+  if (btn) btn.disabled = true;
+  if (nextBtn) nextBtn.disabled = true;
   statusEl.textContent = 'Searching…';
   statusEl.style.color = 'var(--text3)';
-  btn.disabled = true;
   document.getElementById('img-picker-container').style.display = 'none';
 
-  // Each source maps to a combined fetcher that queries 2-3 category-appropriate APIs
   const fetcher = IMAGE_FETCHERS[source] || IMAGE_FETCHERS.ai;
 
   try {
-    let urls = await fetcher(title);
+    let urls = await fetcher(title, currentImgPage);
 
-    // If still nothing, try a simplified title (strip subtitle after colon)
-    if (!urls.length && title.includes(':')) {
-      urls = await fetcher(title.split(':')[0].trim());
+    // If still nothing on page 1, try simplified title
+    if (!urls.length && currentImgPage === 1 && title.includes(':')) {
+      urls = await fetcher(title.split(':')[0].trim(), 1);
     }
 
     urls = urls.filter(Boolean).slice(0, 5);
@@ -1295,20 +1317,31 @@ async function fetchImageForModal() {
     if (urls.length) {
       statusEl.style.color = 'var(--green)';
       statusEl.textContent = `${urls.length} image${urls.length > 1 ? 's' : ''} found — pick one`;
-      renderImagePicker(urls);
+      renderImagePicker(urls, currentImgPage);
     } else {
-      statusEl.style.color = 'var(--text3)';
-      statusEl.textContent = 'Not found — try pasting a URL manually';
+      if (currentImgPage > 1) {
+        currentImgPage--;
+        statusEl.textContent = 'No more results — try a different search';
+      } else {
+        statusEl.style.color = 'var(--text3)';
+        statusEl.textContent = 'Not found — try pasting a URL manually';
+      }
+      document.getElementById('img-picker-container').style.display = urls.length ? 'block' : 'none';
     }
   } catch (e) {
     statusEl.textContent = 'Error fetching';
   }
-  btn.disabled = false;
+  if (btn) btn.disabled = false;
+  if (nextBtn) nextBtn.disabled = false;
 }
 
-function renderImagePicker(urls) {
+function renderImagePicker(urls, page = 1) {
   const grid = document.getElementById('img-picker-grid');
   const container = document.getElementById('img-picker-container');
+  const pageLabel = document.getElementById('img-page-label');
+  const prevBtn = document.getElementById('img-prev-btn');
+  const nextBtn = document.getElementById('img-next-btn');
+
   grid.innerHTML = urls.map((url, i) => `
     <div class="img-picker-option" onclick="selectPickerImage('${url}', this)" data-url="${url}">
       <img src="${url}" onerror="this.parentElement.style.display='none'" loading="lazy">
@@ -1316,6 +1349,11 @@ function renderImagePicker(urls) {
     </div>
   `).join('');
   container.style.display = 'block';
+
+  if (pageLabel) pageLabel.textContent = `Page ${page}`;
+  if (prevBtn) prevBtn.style.display = page > 1 ? 'inline-flex' : 'none';
+  if (nextBtn) nextBtn.style.display = urls.length === 5 ? 'inline-flex' : 'none';
+
   // Auto-select first
   const first = grid.querySelector('.img-picker-option');
   if (first) selectPickerImage(urls[0], first);
@@ -1331,43 +1369,47 @@ function selectPickerImage(url, el) {
 // ─── IMAGE FETCH APIs ────────────────────────────────────────────────────────
 
 // Shows & Movies: TMDB + iTunes
-async function fetchTMDBMulti(title) {
+async function fetchTMDBMulti(title, page = 1) {
   try {
     const key = '4a3b711b67bee2e30843ca96d68a09c1';
-    const r = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${key}&query=${encodeURIComponent(title)}&page=1`);
+    const r = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${key}&query=${encodeURIComponent(title)}&page=${page}`);
     const d = await r.json();
     return (d.results || []).map(item => item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null).filter(Boolean).slice(0, 5);
   } catch { return []; }
 }
 
-async function fetchITunesMovieMulti(title) {
+async function fetchITunesMovieMulti(title, page = 1) {
   try {
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=movie&limit=5`);
+    const offset = (page - 1) * 5;
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=movie&limit=5&offset=${offset}`);
     const d = await r.json();
     return (d.results || []).map(item => item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
   } catch { return []; }
 }
 
-async function fetchITunesTVMulti(title) {
+async function fetchITunesTVMulti(title, page = 1) {
   try {
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=tvShow&limit=5`);
+    const offset = (page - 1) * 5;
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=tvShow&limit=5&offset=${offset}`);
     const d = await r.json();
     return (d.results || []).map(item => item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
   } catch { return []; }
 }
 
 // Books: Open Library + Google Books + iTunes
-async function fetchOpenLibraryMulti(title) {
+async function fetchOpenLibraryMulti(title, page = 1) {
   try {
-    const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=5`);
+    const offset = (page - 1) * 5;
+    const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=5&offset=${offset}`);
     const d = await r.json();
     return (d.docs || []).map(doc => doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : null).filter(Boolean);
   } catch { return []; }
 }
 
-async function fetchGoogleBooksMulti(title) {
+async function fetchGoogleBooksMulti(title, page = 1) {
   try {
-    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(title)}&maxResults=5&printType=books`);
+    const startIndex = (page - 1) * 5;
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(title)}&maxResults=5&startIndex=${startIndex}&printType=books`);
     const d = await r.json();
     return (d.items || []).map(item => {
       const img = item.volumeInfo?.imageLinks?.thumbnail || item.volumeInfo?.imageLinks?.smallThumbnail;
@@ -1376,40 +1418,44 @@ async function fetchGoogleBooksMulti(title) {
   } catch { return []; }
 }
 
-async function fetchITunesBooksMulti(title) {
+async function fetchITunesBooksMulti(title, page = 1) {
   try {
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=ebook&limit=5`);
+    const offset = (page - 1) * 5;
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=ebook&limit=5&offset=${offset}`);
     const d = await r.json();
     return (d.results || []).map(item => item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
   } catch { return []; }
 }
 
 // Video Games: RAWG + iTunes
-async function fetchRAWGMulti(title) {
+async function fetchRAWGMulti(title, page = 1) {
   try {
     const key = '5a0a9c4e63b0490da52daf9c99da4e05';
-    const r = await fetch(`https://api.rawg.io/api/games?key=${key}&search=${encodeURIComponent(title)}&page_size=5`);
+    const r = await fetch(`https://api.rawg.io/api/games?key=${key}&search=${encodeURIComponent(title)}&page_size=5&page=${page}`);
     const d = await r.json();
     return (d.results || []).map(item => item.background_image).filter(Boolean);
   } catch { return []; }
 }
 
-async function fetchITunesGamesMulti(title) {
+async function fetchITunesGamesMulti(title, page = 1) {
   try {
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=software&entity=software&limit=5`);
+    const offset = (page - 1) * 5;
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=software&entity=software&limit=5&offset=${offset}`);
     const d = await r.json();
     return (d.results || []).map(item => item.artworkUrl512 || item.artworkUrl100?.replace('100x100', '512x512')).filter(Boolean);
   } catch { return []; }
 }
 
 // Board Games: BGG
-async function fetchBGGMulti(title) {
+async function fetchBGGMulti(title, page = 1) {
   try {
     const r = await fetch(`https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(title)}&type=boardgame`);
     const text = await r.text();
     const parser = new DOMParser();
     const xml = parser.parseFromString(text, 'text/xml');
-    const ids = [...xml.querySelectorAll('item')].slice(0, 5).map(el => el.getAttribute('id')).filter(Boolean);
+    const allIds = [...xml.querySelectorAll('item')].map(el => el.getAttribute('id')).filter(Boolean);
+    const start = (page - 1) * 5;
+    const ids = allIds.slice(start, start + 5);
     const images = await Promise.all(ids.map(async id => {
       try {
         const r2 = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${id}`);
@@ -1423,33 +1469,36 @@ async function fetchBGGMulti(title) {
   } catch { return []; }
 }
 
-async function fetchITunesMusicMulti(title, entity = 'musicTrack') {
+async function fetchITunesMusicMulti(title, page = 1, entity = 'musicTrack') {
   try {
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=music&entity=${entity}&limit=5`);
+    const offset = (page - 1) * 5;
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=music&entity=${entity}&limit=5&offset=${offset}`);
     const d = await r.json();
     return (d.results || []).map(item => item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
   } catch { return []; }
 }
 
-async function fetchITunesPodcastMulti(title) {
+async function fetchITunesPodcastMulti(title, page = 1) {
   try {
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=podcast&entity=podcast&limit=5`);
+    const offset = (page - 1) * 5;
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=podcast&entity=podcast&limit=5&offset=${offset}`);
     const d = await r.json();
     return (d.results || []).map(item => item.artworkUrl600 || item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
   } catch { return []; }
 }
 
-async function fetchJikanMulti(title) {
+async function fetchJikanMulti(title, page = 1) {
   try {
-    const r = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title)}&limit=5&sfw=false`);
+    const r = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title)}&limit=5&page=${page}&sfw=false`);
     const d = await r.json();
     return (d.data || []).map(item => item.images?.jpg?.large_image_url || item.images?.jpg?.image_url).filter(Boolean);
   } catch { return []; }
 }
 
-async function fetchITunesAppMulti(title) {
+async function fetchITunesAppMulti(title, page = 1) {
   try {
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=software&entity=software&limit=5`);
+    const offset = (page - 1) * 5;
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=software&entity=software&limit=5&offset=${offset}`);
     const d = await r.json();
     return (d.results || []).map(item => item.artworkUrl512 || item.artworkUrl100).filter(Boolean);
   } catch { return []; }
@@ -1457,59 +1506,57 @@ async function fetchITunesAppMulti(title) {
 
 // Combined fetchers per source type — always 3 sources, same category only
 const IMAGE_FETCHERS = {
-  tmdb: async (title) => {
+  tmdb: async (title, page = 1) => {
     const [tmdb, movies, tv] = await Promise.all([
-      fetchTMDBMulti(title),
-      fetchITunesMovieMulti(title),
-      fetchITunesTVMulti(title)
+      fetchTMDBMulti(title, page),
+      fetchITunesMovieMulti(title, page),
+      fetchITunesTVMulti(title, page)
     ]);
     return [...new Set([...tmdb, ...movies, ...tv])].slice(0, 5);
   },
-  openlibrary: async (title) => {
+  openlibrary: async (title, page = 1) => {
     const [ol, gb, ib] = await Promise.all([
-      fetchOpenLibraryMulti(title),
-      fetchGoogleBooksMulti(title),
-      fetchITunesBooksMulti(title)
+      fetchOpenLibraryMulti(title, page),
+      fetchGoogleBooksMulti(title, page),
+      fetchITunesBooksMulti(title, page)
     ]);
     return [...new Set([...ol, ...gb, ...ib])].slice(0, 5);
   },
-  rawg: async (title) => {
+  rawg: async (title, page = 1) => {
     const [rawg, ig] = await Promise.all([
-      fetchRAWGMulti(title),
-      fetchITunesGamesMulti(title)
+      fetchRAWGMulti(title, page),
+      fetchITunesGamesMulti(title, page)
     ]);
     return [...new Set([...rawg, ...ig])].slice(0, 5);
   },
-  bgg: async (title) => {
-    return fetchBGGMulti(title);
+  bgg: async (title, page = 1) => {
+    return fetchBGGMulti(title, page);
   },
-  places: async (title) => {
-    // For places, search TMDB for documentary/food content as a proxy
-    return fetchTMDBMulti(title);
+  places: async (title, page = 1) => {
+    return fetchTMDBMulti(title, page);
   },
-  itunes_music: async (title) => {
-    const [music, itunes] = await Promise.all([
-      fetchITunesMusicMulti(title),
-      fetchITunesMusicMulti(title, 'album')
+  itunes_music: async (title, page = 1) => {
+    const [music, album] = await Promise.all([
+      fetchITunesMusicMulti(title, page),
+      fetchITunesMusicMulti(title, page, 'album')
     ]);
-    return [...new Set([...music, ...itunes])].slice(0, 5);
+    return [...new Set([...music, ...album])].slice(0, 5);
   },
-  itunes_podcast: async (title) => {
-    return fetchITunesPodcastMulti(title);
+  itunes_podcast: async (title, page = 1) => {
+    return fetchITunesPodcastMulti(title, page);
   },
-  jikan: async (title) => {
+  jikan: async (title, page = 1) => {
     const [jikan, tmdb] = await Promise.all([
-      fetchJikanMulti(title),
-      fetchTMDBMulti(title)
+      fetchJikanMulti(title, page),
+      fetchTMDBMulti(title, page)
     ]);
     return [...new Set([...jikan, ...tmdb])].slice(0, 5);
   },
-  itunes_app: async (title) => {
-    return fetchITunesAppMulti(title);
+  itunes_app: async (title, page = 1) => {
+    return fetchITunesAppMulti(title, page);
   },
-  ai: async (title) => {
-    // For custom categories try TMDB + iTunes as general fallback
-    const [tmdb, movies] = await Promise.all([fetchTMDBMulti(title), fetchITunesMovieMulti(title)]);
+  ai: async (title, page = 1) => {
+    const [tmdb, movies] = await Promise.all([fetchTMDBMulti(title, page), fetchITunesMovieMulti(title, page)]);
     return [...new Set([...tmdb, ...movies])].slice(0, 5);
   }
 };
