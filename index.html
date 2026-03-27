@@ -705,7 +705,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.3.3'; // Update this with each deployment
+const APP_VERSION = '2.3.5'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1352,7 +1352,7 @@ function renderImagePicker(urls, page = 1) {
 
   if (pageLabel) pageLabel.textContent = `Page ${page}`;
   if (prevBtn) prevBtn.style.display = page > 1 ? 'inline-flex' : 'none';
-  if (nextBtn) nextBtn.style.display = urls.length === 5 ? 'inline-flex' : 'none';
+  if (nextBtn) nextBtn.style.display = urls.length > 0 ? 'inline-flex' : 'none';
 
   // Auto-select first
   const first = grid.querySelector('.img-picker-option');
@@ -1374,33 +1374,56 @@ async function fetchTMDBMulti(title, page = 1) {
     const key = '4a3b711b67bee2e30843ca96d68a09c1';
     const r = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${key}&query=${encodeURIComponent(title)}&page=${page}`);
     const d = await r.json();
-    return (d.results || []).map(item => item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null).filter(Boolean).slice(0, 5);
+    return (d.results || [])
+      .filter(item => {
+        // Filter out results with no poster and loosely matching titles
+        if (!item.poster_path) return false;
+        const resultTitle = (item.title || item.name || '').toLowerCase();
+        const searchWords = title.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        return searchWords.some(w => resultTitle.includes(w));
+      })
+      .map(item => `https://image.tmdb.org/t/p/w500${item.poster_path}`)
+      .slice(0, 10);
   } catch { return []; }
 }
 
 async function fetchITunesMovieMulti(title, page = 1) {
   try {
-    const offset = (page - 1) * 5;
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=movie&limit=5&offset=${offset}`);
+    const offset = (page - 1) * 15;
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=movie&limit=15&offset=${offset}`);
     const d = await r.json();
-    return (d.results || []).map(item => item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
+    const searchWords = title.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    return (d.results || [])
+      .filter(item => {
+        const t = (item.trackName || item.collectionName || '').toLowerCase();
+        return searchWords.some(w => t.includes(w));
+      })
+      .map(item => item.artworkUrl100?.replace('100x100', '600x600'))
+      .filter(Boolean);
   } catch { return []; }
 }
 
 async function fetchITunesTVMulti(title, page = 1) {
   try {
-    const offset = (page - 1) * 5;
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=tvShow&limit=5&offset=${offset}`);
+    const offset = (page - 1) * 15;
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=tvShow&limit=15&offset=${offset}`);
     const d = await r.json();
-    return (d.results || []).map(item => item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
+    const searchWords = title.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    return (d.results || [])
+      .filter(item => {
+        const t = (item.trackName || item.collectionName || '').toLowerCase();
+        return searchWords.some(w => t.includes(w));
+      })
+      .map(item => item.artworkUrl100?.replace('100x100', '600x600'))
+      .filter(Boolean);
   } catch { return []; }
 }
 
 // Books: Open Library + Google Books + iTunes
 async function fetchOpenLibraryMulti(title, page = 1) {
   try {
-    const offset = (page - 1) * 5;
-    const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=5&offset=${offset}`);
+    const offset = (page - 1) * 15;
+    const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=15&offset=${offset}`);
     const d = await r.json();
     return (d.docs || []).map(doc => doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : null).filter(Boolean);
   } catch { return []; }
@@ -1408,8 +1431,8 @@ async function fetchOpenLibraryMulti(title, page = 1) {
 
 async function fetchGoogleBooksMulti(title, page = 1) {
   try {
-    const startIndex = (page - 1) * 5;
-    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(title)}&maxResults=5&startIndex=${startIndex}&printType=books`);
+    const startIndex = (page - 1) * 15;
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(title)}&maxResults=15&startIndex=${startIndex}&printType=books`);
     const d = await r.json();
     return (d.items || []).map(item => {
       const img = item.volumeInfo?.imageLinks?.thumbnail || item.volumeInfo?.imageLinks?.smallThumbnail;
@@ -1420,8 +1443,8 @@ async function fetchGoogleBooksMulti(title, page = 1) {
 
 async function fetchITunesBooksMulti(title, page = 1) {
   try {
-    const offset = (page - 1) * 5;
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=ebook&limit=5&offset=${offset}`);
+    const offset = (page - 1) * 15;
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=ebook&limit=15&offset=${offset}`);
     const d = await r.json();
     return (d.results || []).map(item => item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
   } catch { return []; }
@@ -1431,7 +1454,7 @@ async function fetchITunesBooksMulti(title, page = 1) {
 async function fetchRAWGMulti(title, page = 1) {
   try {
     const key = '5a0a9c4e63b0490da52daf9c99da4e05';
-    const r = await fetch(`https://api.rawg.io/api/games?key=${key}&search=${encodeURIComponent(title)}&page_size=5&page=${page}`);
+    const r = await fetch(`https://api.rawg.io/api/games?key=${key}&search=${encodeURIComponent(title)}&page_size=15&page=${page}`);
     const d = await r.json();
     return (d.results || []).map(item => item.background_image).filter(Boolean);
   } catch { return []; }
@@ -1439,8 +1462,8 @@ async function fetchRAWGMulti(title, page = 1) {
 
 async function fetchITunesGamesMulti(title, page = 1) {
   try {
-    const offset = (page - 1) * 5;
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=software&entity=software&limit=5&offset=${offset}`);
+    const offset = (page - 1) * 15;
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=software&entity=software&limit=15&offset=${offset}`);
     const d = await r.json();
     return (d.results || []).map(item => item.artworkUrl512 || item.artworkUrl100?.replace('100x100', '512x512')).filter(Boolean);
   } catch { return []; }
@@ -1454,7 +1477,7 @@ async function fetchBGGMulti(title, page = 1) {
     const parser = new DOMParser();
     const xml = parser.parseFromString(text, 'text/xml');
     const allIds = [...xml.querySelectorAll('item')].map(el => el.getAttribute('id')).filter(Boolean);
-    const start = (page - 1) * 5;
+    const start = (page - 1) * 15;
     const ids = allIds.slice(start, start + 5);
     const images = await Promise.all(ids.map(async id => {
       try {
@@ -1471,8 +1494,8 @@ async function fetchBGGMulti(title, page = 1) {
 
 async function fetchITunesMusicMulti(title, page = 1, entity = 'musicTrack') {
   try {
-    const offset = (page - 1) * 5;
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=music&entity=${entity}&limit=5&offset=${offset}`);
+    const offset = (page - 1) * 15;
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=music&entity=${entity}&limit=15&offset=${offset}`);
     const d = await r.json();
     return (d.results || []).map(item => item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
   } catch { return []; }
@@ -1480,8 +1503,8 @@ async function fetchITunesMusicMulti(title, page = 1, entity = 'musicTrack') {
 
 async function fetchITunesPodcastMulti(title, page = 1) {
   try {
-    const offset = (page - 1) * 5;
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=podcast&entity=podcast&limit=5&offset=${offset}`);
+    const offset = (page - 1) * 15;
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=podcast&entity=podcast&limit=15&offset=${offset}`);
     const d = await r.json();
     return (d.results || []).map(item => item.artworkUrl600 || item.artworkUrl100?.replace('100x100', '600x600')).filter(Boolean);
   } catch { return []; }
@@ -1489,7 +1512,7 @@ async function fetchITunesPodcastMulti(title, page = 1) {
 
 async function fetchJikanMulti(title, page = 1) {
   try {
-    const r = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title)}&limit=5&page=${page}&sfw=false`);
+    const r = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title)}&limit=15&page=${page}&sfw=false`);
     const d = await r.json();
     return (d.data || []).map(item => item.images?.jpg?.large_image_url || item.images?.jpg?.image_url).filter(Boolean);
   } catch { return []; }
@@ -1497,8 +1520,8 @@ async function fetchJikanMulti(title, page = 1) {
 
 async function fetchITunesAppMulti(title, page = 1) {
   try {
-    const offset = (page - 1) * 5;
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=software&entity=software&limit=5&offset=${offset}`);
+    const offset = (page - 1) * 15;
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=software&entity=software&limit=15&offset=${offset}`);
     const d = await r.json();
     return (d.results || []).map(item => item.artworkUrl512 || item.artworkUrl100).filter(Boolean);
   } catch { return []; }
