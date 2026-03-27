@@ -705,7 +705,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.3.5'; // Update this with each deployment
+const APP_VERSION = '2.3.6'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1375,15 +1375,9 @@ async function fetchTMDBMulti(title, page = 1) {
     const r = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${key}&query=${encodeURIComponent(title)}&page=${page}`);
     const d = await r.json();
     return (d.results || [])
-      .filter(item => {
-        // Filter out results with no poster and loosely matching titles
-        if (!item.poster_path) return false;
-        const resultTitle = (item.title || item.name || '').toLowerCase();
-        const searchWords = title.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-        return searchWords.some(w => resultTitle.includes(w));
-      })
+      .filter(item => item.poster_path) // only require a poster exists
       .map(item => `https://image.tmdb.org/t/p/w500${item.poster_path}`)
-      .slice(0, 10);
+      .slice(0, 15);
   } catch { return []; }
 }
 
@@ -1392,12 +1386,7 @@ async function fetchITunesMovieMulti(title, page = 1) {
     const offset = (page - 1) * 15;
     const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=movie&limit=15&offset=${offset}`);
     const d = await r.json();
-    const searchWords = title.toLowerCase().split(/\s+/).filter(w => w.length > 2);
     return (d.results || [])
-      .filter(item => {
-        const t = (item.trackName || item.collectionName || '').toLowerCase();
-        return searchWords.some(w => t.includes(w));
-      })
       .map(item => item.artworkUrl100?.replace('100x100', '600x600'))
       .filter(Boolean);
   } catch { return []; }
@@ -1408,9 +1397,11 @@ async function fetchITunesTVMulti(title, page = 1) {
     const offset = (page - 1) * 15;
     const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=tvShow&limit=15&offset=${offset}`);
     const d = await r.json();
-    const searchWords = title.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    // Only filter out results that share no words with the search — very loose check
+    const searchWords = title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
     return (d.results || [])
       .filter(item => {
+        if (!searchWords.length) return true;
         const t = (item.trackName || item.collectionName || '').toLowerCase();
         return searchWords.some(w => t.includes(w));
       })
