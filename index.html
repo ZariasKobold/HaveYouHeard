@@ -705,7 +705,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.3.6'; // Update this with each deployment
+const APP_VERSION = '2.3.7'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1371,7 +1371,7 @@ function selectPickerImage(url, el) {
 // Shows & Movies: TMDB + iTunes
 async function fetchTMDBMulti(title, page = 1) {
   try {
-    const key = '4a3b711b67bee2e30843ca96d68a09c1';
+    const key = '02c7cedd947c42647e4533e1af18b915';
     const r = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${key}&query=${encodeURIComponent(title)}&page=${page}`);
     const d = await r.json();
     return (d.results || [])
@@ -2058,7 +2058,7 @@ async function loadWhereToWatch(item, cat) {
 }
 
 async function buildTMDBWhere(title, country) {
-  const key = '4a3b711b67bee2e30843ca96d68a09c1';
+  const key = '02c7cedd947c42647e4533e1af18b915';
   // Search for the item first to get its ID
   const searchR = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${key}&query=${encodeURIComponent(title)}&page=1`);
   const searchD = await searchR.json();
