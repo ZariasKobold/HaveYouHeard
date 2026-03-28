@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- HeardTale v2.3.10 | Last updated: 2026-03-27 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -705,7 +706,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.3.8'; // Update this with each deployment
+const APP_VERSION = '2.3.10'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1354,21 +1355,33 @@ function renderImagePicker(urls, page = 1) {
   if (prevBtn) prevBtn.style.display = page > 1 ? 'inline-flex' : 'none';
   if (nextBtn) nextBtn.style.display = urls.length > 0 ? 'inline-flex' : 'none';
 
-  // Auto-select first image that actually loads successfully
+  // Auto-select the earliest-indexed image that successfully loads
+  // (not the fastest — avoids tiny placeholder/study-guide covers winning the race)
   const options = Array.from(grid.querySelectorAll('.img-picker-option'));
-  let selected = false;
-  for (const option of options) {
+  const loaded = new Array(options.length).fill(false);
+
+  function pickBest() {
+    const bestIdx = loaded.indexOf(true);
+    if (bestIdx === -1) return;
+    const best = options[bestIdx];
+    selectPickerImage(best.dataset.url, best);
+  }
+
+  options.forEach((option, i) => {
     const img = option.querySelector('img');
-    if (!img) continue;
+    if (!img) return;
     if (img.complete && img.naturalWidth > 0) {
-      // Already loaded (cached)
-      if (!selected) { selectPickerImage(option.dataset.url, option); selected = true; }
+      loaded[i] = true;
+      pickBest();
     } else {
       img.addEventListener('load', () => {
-        if (!selected) { selectPickerImage(option.dataset.url, option); selected = true; }
+        loaded[i] = true;
+        // Only update selection if this is earlier than the current best
+        const currentBest = loaded.indexOf(true);
+        if (currentBest === i) pickBest();
       }, { once: true });
     }
-  }
+  });
 }
 
 function selectPickerImage(url, el) {
