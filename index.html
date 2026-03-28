@@ -705,7 +705,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.3.7'; // Update this with each deployment
+const APP_VERSION = '2.3.8'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1344,7 +1344,7 @@ function renderImagePicker(urls, page = 1) {
 
   grid.innerHTML = urls.map((url, i) => `
     <div class="img-picker-option" onclick="selectPickerImage('${url}', this)" data-url="${url}">
-      <img src="${url}" onerror="this.parentElement.style.display='none'" loading="lazy">
+      <img src="${url}" onerror="this.parentElement.style.display='none'">
       <div class="img-check">✓</div>
     </div>
   `).join('');
@@ -1354,9 +1354,21 @@ function renderImagePicker(urls, page = 1) {
   if (prevBtn) prevBtn.style.display = page > 1 ? 'inline-flex' : 'none';
   if (nextBtn) nextBtn.style.display = urls.length > 0 ? 'inline-flex' : 'none';
 
-  // Auto-select first
-  const first = grid.querySelector('.img-picker-option');
-  if (first) selectPickerImage(urls[0], first);
+  // Auto-select first image that actually loads successfully
+  const options = Array.from(grid.querySelectorAll('.img-picker-option'));
+  let selected = false;
+  for (const option of options) {
+    const img = option.querySelector('img');
+    if (!img) continue;
+    if (img.complete && img.naturalWidth > 0) {
+      // Already loaded (cached)
+      if (!selected) { selectPickerImage(option.dataset.url, option); selected = true; }
+    } else {
+      img.addEventListener('load', () => {
+        if (!selected) { selectPickerImage(option.dataset.url, option); selected = true; }
+      }, { once: true });
+    }
+  }
 }
 
 function selectPickerImage(url, el) {
