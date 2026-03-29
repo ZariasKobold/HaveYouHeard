@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- HeardTale v2.3.10 | Last updated: 2026-03-27 -->
+<!-- HeardTale v2.4.0 | Last updated: 2026-03-28 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -706,7 +706,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uhkkyibnfdvkmdnxaoak.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoa2t5aWJuZmR2a21kbnhhb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MzU1NzMsImV4cCI6MjA4OTIxMTU3M30.ArPrYntB7yf0x_B8HI34FJG-5E7RjUOcYSm8CBk1wDQ';
-const APP_VERSION = '2.3.10'; // Update this with each deployment
+const APP_VERSION = '2.4.0'; // Update this with each deployment
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1646,9 +1646,16 @@ function renderTagPills() {
 function removeTag(i) { currentTags.splice(i, 1); renderTagPills(); }
 
 // ─── SAVE / DELETE ────────────────────────────────────────────────────────────
+let isSaving = false;
 async function saveItem(addAnother = false) {
+  if (isSaving) return;
+  isSaving = true;
+  const saveBtn = document.querySelector('.modal-footer .btn-accent');
+  const saveAddBtn = document.getElementById('modal-save-add-btn');
+  if (saveBtn) saveBtn.disabled = true;
+  if (saveAddBtn) saveAddBtn.disabled = true;
   const title = document.getElementById('modal-title').value.trim();
-  if (!title) { showToast('Title is required'); return; }
+  if (!title) { isSaving = false; if (saveBtn) saveBtn.disabled = false; if (saveAddBtn) saveAddBtn.disabled = false; showToast('Title is required'); return; }
 
   const forcePrivate = document.getElementById('modal-force-private')?.checked || false;
   const payload = {
@@ -1718,10 +1725,16 @@ async function saveItem(addAnother = false) {
     document.getElementById('modal-title').focus();
     if (currentView === 'category') renderCategoryView();
     else renderDashboard();
+    isSaving = false;
+    if (saveBtn) saveBtn.disabled = false;
+    if (saveAddBtn) saveAddBtn.disabled = false;
   } else {
     closeItemModal();
     if (currentView === 'category') renderCategoryView();
     else renderDashboard();
+    isSaving = false;
+    if (saveBtn) saveBtn.disabled = false;
+    if (saveAddBtn) saveAddBtn.disabled = false;
   }
 }
 
